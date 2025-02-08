@@ -1,0 +1,8 @@
+- name: 更新白名单相关任务
+  block:
+    - name: 1-1 合并白名单（文件非空时）
+      shell: sed -i  -e "/{{ white_num }}/d"  -e '/^$/d' /data/server/login/etc/white_list.txt
+
+    - name: 2-2 执行 server.sh
+      shell: "/data/server/login/server.sh reload"
+  when: white_num is defined and white_num != ''

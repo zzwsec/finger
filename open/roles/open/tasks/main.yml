@@ -1,0 +1,31 @@
+---
+- name: 1-0检查/data/serverX/目录是否存在
+  stat:
+    path: /data/server{{ svc_num }}
+  register: dir_check
+
+- name: 1-1目录不存在，终止剧本执行
+  fail:
+    msg: "目录/data/server{{ svc_num }}不存在，停止剧本执行"
+  when: not dir_check.stat.exists
+
+- name: 1-1分发时间文件
+  copy:
+    src: open_time.lua
+    dest: /data/server{{ svc_num }}/game/lua/config/open_time.lua
+
+- name: 1-2 判断当前 serverX 是否运行
+  shell: "pgrep -f /data/server{{ svc_num }}/p8_app_server"
+  register: svc_stat
+  ignore_errors: yes
+
+- name: 1-4 进程存活时，执行 /data/serverX/game/server.sh reload
+  shell: "/data/server{{ svc_num }}/game/server.sh reload"
+  when: svc_stat.rc == 0
+
+- name: 1-5 进程不存活时，执行 start
+  shell: "/data/server{{ svc_num }}/game/server.sh start"
+  when: svc_stat.rc != 0
+
+- name: 2-1执行server-login.sh
+  shell: "/data/server/login/server.sh reload"
