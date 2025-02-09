@@ -1,5 +1,4 @@
 #!/bin/bash
-set -e
 
 # 参数验证与赋值
 if [ $# -eq 1 ]; then
