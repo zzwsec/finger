@@ -13,20 +13,57 @@ import (
 	"time"
 
 	_ "github.com/go-sql-driver/mysql"
+	"gopkg.in/yaml.v3"
 )
 
-const (
-	pidFile    = "./open.pid"
-	initFile   = "/data/ansible/open/init.txt"
-	scriptPath = "/data/ansible/open/install.sh"
-	host       = "192.168.121.120"
-	port       = "3306"
-	user       = "root"
-	password   = "root"
-	database   = "cbt4_log"
+// 定义变量来存储从 YAML 文件中读取的值
+var (
+	pidFile    string
+	initFile   string
+	scriptPath string
+	host       string
+	port       string
+	user       string
+	password   string
+	database   string
 )
+
+// 从 YAML 文件中加载配置
+func loadConfig() error {
+	data, err := os.ReadFile("args.yaml")
+	if err != nil {
+		return fmt.Errorf("无法读取 YAML 文件: %v", err)
+	}
+
+	// 定义一个 map 来存储 YAML 文件中的键值对
+	config := make(map[string]string)
+
+	// 解析 YAML 文件
+	err = yaml.Unmarshal(data, &config)
+	if err != nil {
+		return fmt.Errorf("无法解析 YAML 文件: %v", err)
+	}
+
+	// 将 YAML 文件中的值赋给变量
+	pidFile = config["pidFile"]
+	initFile = config["initFile"]
+	scriptPath = config["scriptPath"]
+	host = config["host"]
+	port = config["port"]
+	user = config["user"]
+	password = config["password"]
+	database = config["database"]
+
+	return nil
+}
 
 func main() {
+	// 加载配置
+	err := loadConfig()
+	if err != nil {
+		log.Fatalf("加载配置失败: %v", err)
+	}
+
 	// 检查 PID 文件是否存在
 	if checkPIDFile() {
 		log.Println("程序已经在运行，退出")
@@ -34,7 +71,7 @@ func main() {
 	}
 
 	// 将当前进程的 PID 写入文件
-	err := writePIDFile()
+	err = writePIDFile()
 	if err != nil {
 		log.Fatalf("无法写入 PID 文件: %v", err)
 	}
@@ -73,21 +110,19 @@ func main() {
 		}
 
 		// 参数化查询
-		currentSql := "SELECT COUNT(id) FROM log_register WHERE zone_id=?"
-		nextSql := "SELECT COUNT(id) FROM log_register WHERE zone_id=?"
-
+		querySql := "SELECT COUNT(id) FROM log_register WHERE zone_id=?"
 		// 定义变量存储查询结果
 		var tmpRunSvcCount, tmpRunSvcNextCount int
 
 		// 执行查询并将查询结果放到变量tmpRunSvcCount
-		err = db.QueryRow(currentSql, runSvcNum).Scan(&tmpRunSvcCount)
+		err = db.QueryRow(querySql, runSvcNum).Scan(&tmpRunSvcCount)
 		if err != nil {
 			log.Printf("查询当前服务玩家数失败: %v", err)
 			time.Sleep(30 * time.Second)
 			continue
 		}
 
-		err = db.QueryRow(nextSql, runSvcNum+1).Scan(&tmpRunSvcNextCount)
+		err = db.QueryRow(querySql, runSvcNum+1).Scan(&tmpRunSvcNextCount)
 		if err != nil {
 			log.Printf("查询下一个服务玩家数失败: %v", err)
 			time.Sleep(30 * time.Second)
@@ -95,7 +130,7 @@ func main() {
 		}
 
 		// 确保查询返回的结果非空且符合条件
-		if tmpRunSvcCount > 1000 && tmpRunSvcNextCount == 0 {
+		if tmpRunSvcCount >= 1000 && tmpRunSvcNextCount == 0 {
 			// 如果符合条件，执行安装脚本
 			err := executeInstallScript(strconv.Itoa(runSvcNum + 1))
 			if err != nil {
@@ -114,9 +149,12 @@ func main() {
 	}
 }
 
-// 执行安装脚本
+// 执行安装脚本（增加指数退避机制）
 func executeInstallScript(runSvcNum string) error {
-	const maxRetries = 3 // 最大重试次数
+	const (
+		maxRetries   = 3
+		initialDelay = 60 * time.Second // 初始等待时间
+	)
 
 	// 打开日志文件（追加模式）
 	logFile, err := os.OpenFile("info.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
@@ -129,39 +167,41 @@ func executeInstallScript(runSvcNum string) error {
 	// 创建日志记录器
 	logger := log.New(logFile, "", log.LstdFlags)
 
+	delay := initialDelay // 当前等待时间
+
 	for attempt := 1; attempt <= maxRetries; attempt++ {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-		defer cancel()
-
-		// 执行脚本并隐藏其输出
 		cmd := exec.CommandContext(ctx, scriptPath, runSvcNum, "1")
-
-		// **重定向输出，不显示在终端**
 		cmd.Stdout = nil
 		cmd.Stderr = nil
 
-		// 运行命令
+		startTime := time.Now()
 		err := cmd.Run()
+		cancel() // 确保每次循环结束后释放资源
+
 		if err == nil {
-			successMsg := fmt.Sprintf("脚本执行成功, 服务器编号: %s\n", runSvcNum)
-			logger.Println(successMsg) // 记录成功日志
+			successMsg := fmt.Sprintf("脚本执行成功, 服务器编号: %s (耗时: %v)",
+				runSvcNum, time.Since(startTime))
+			logger.Println(successMsg)
 			return nil
 		}
 
-		// 失败时记录日志
-		errorMsg := fmt.Sprintf("执行脚本失败 (第 %d 次尝试): %v\n", attempt, err)
-		logger.Println(errorMsg) // 记录失败日志
+		// 错误处理
+		errorMsg := fmt.Sprintf("执行失败 (第 %d 次尝试): %v (耗时: %v)",
+			attempt, err, time.Since(startTime))
+		logger.Println(errorMsg)
 
-		// 如果达到最大重试次数，则终止程序
 		if attempt == maxRetries {
-			finalMsg := "连续 3 次执行失败，退出程序\n"
-			logger.Println(finalMsg)
-			os.Exit(1) // 直接退出 Go 进程
+			logger.Println("连续 3 次执行失败，退出程序")
+			os.Exit(1)
 		}
 
-		logger.Println("等待 60 秒后重试...")
-		time.Sleep(60 * time.Second) // 等待 60 秒后重试
+		// 指数退避等待
+		logger.Printf("等待 %v 后重试...", delay)
+		time.Sleep(delay)
+		delay *= 2 // 等待时间翻倍
 	}
+
 	return fmt.Errorf("脚本执行失败")
 }
 

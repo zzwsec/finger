@@ -1,0 +1,8 @@
+pidFile: "./open.pid"
+initFile: "/data/ansible/open/init.txt"
+scriptPath: "/data/ansible/open/install.sh"
+host: "192.168.121.120"
+port: "3306"
+user: "root"
+password: "root"
+database: "cbt4_log"
