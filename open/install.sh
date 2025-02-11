@@ -29,6 +29,10 @@ if [[ ! -f "list.txt" ]]; then
     exit 2
 fi
 
+# 删除list.txt的空行
+sed -i '/^$/d' list.txt
+
+
 # 获取主机名
 get_host_name() {
     local line_num=$1
