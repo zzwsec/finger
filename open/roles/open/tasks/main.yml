@@ -17,7 +17,6 @@
 - name: 1-2 判断当前 serverX 是否运行
   shell: "pgrep -f /data/server{{ svc_num }}/game/p8_app_server"
   register: svc_stat
-  ignore_errors: yes
 
 - name: 1-4 进程存活时，执行 /data/serverX/game/server.sh reload
   shell: "/data/server{{ svc_num }}/game/server.sh reload"
