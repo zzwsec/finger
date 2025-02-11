@@ -14,17 +14,39 @@
     src: open_time.lua
     dest: /data/server{{ svc_num }}/game/lua/config/open_time.lua
 
-- name: 1-2 判断当前 serverX 是否运行
+# 初始检测进程状态
+- name: 1-2 初始检测进程状态
   shell: "pgrep -f /data/server{{ svc_num }}/game/p8_app_server"
   register: svc_stat
+  changed_when: false
+  ignore_errors: yes
 
-- name: 1-4 进程存活时，执行 /data/serverX/game/server.sh reload
+- name: 1-3进程存活时执行Reload
   shell: "/data/server{{ svc_num }}/game/server.sh reload"
   when: svc_stat.rc == 0
 
-- name: 1-5 进程不存活时，执行 start
-  shell: "/data/server{{ svc_num }}/game/server.sh start && sleep 5"
-  when: svc_stat.rc != 0
+# 启动服务并验证进程（最多尝试2次）
+- name: 1-4启动服务并验证进程
+  shell: |
+    /data/server{{ svc_num }}/game/server.sh start
+    sleep 5
+    pgrep -f /data/server{{ svc_num }}/game/p8_app_server
+  args:
+    executable: /bin/bash
+  register: start_attempt
+  retries: 2  # 总尝试次数=retries+1（即3次）
+  delay: 10   # 每次重试间隔10秒
+  until: start_attempt.rc == 0
+  when:
+    - svc_stat.rc != 0  # 仅在初始检测失败时触发
+  ignore_errors: yes
+  changed_when: false
+
+# 最终结果
+- name: 1-5检查启动是否成功
+  fail:
+    msg: "服务启动失败，已尝试多次仍无进程"
+  when: start_attempt is failed
 
 - name: 2-1执行server-login.sh
   shell: "/data/server/login/server.sh reload"
