@@ -15,7 +15,7 @@
     dest: /data/server{{ svc_num }}/game/lua/config/open_time.lua
 
 - name: 1-2 判断当前 serverX 是否运行
-  shell: "pgrep -f /data/server{{ svc_num }}/p8_app_server"
+  shell: "pgrep -f /data/server{{ svc_num }}/game/p8_app_server"
   register: svc_stat
   ignore_errors: yes
 
@@ -24,7 +24,7 @@
   when: svc_stat.rc == 0
 
 - name: 1-5 进程不存活时，执行 start
-  shell: "/data/server{{ svc_num }}/game/server.sh start"
+  shell: "/data/server{{ svc_num }}/game/server.sh start && sleep 5"
   when: svc_stat.rc != 0
 
 - name: 2-1执行server-login.sh
