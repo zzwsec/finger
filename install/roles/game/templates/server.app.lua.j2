@@ -21,9 +21,9 @@ time_zone = 8
 
 -- 服务发现
 discovers = {
-    {% for item in discovers %}
+{% for item in discovers %}
     "tcp://{{item.zkip}}:{{item.zkport}}",
-    {% endfor %}
+{% endfor %}
 }
 
 game_db = {
