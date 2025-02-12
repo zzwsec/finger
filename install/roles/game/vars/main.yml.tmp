@@ -1,0 +1,18 @@
+domin: p8-dev
+app_ip: ${current_ip}
+app_port: ${app_port}
+discovers:
+  - zkip: 192.168.121.101
+    zkport: 2881
+  - zkip: 192.168.121.102
+    zkport: 2882
+  - zkip: 192.168.121.103
+    zkport: 2883
+game_db:
+  db_host: 192.168.121.101
+  db_user: root
+  db_password: dbpass
+  db_name: root
+group_id: 1
+area_id: ${server_num}
+game_index_num: 2

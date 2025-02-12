@@ -1,0 +1,52 @@
+---
+- name: 1-0分发文件
+  copy:
+    src: server_tmp.tar.gz
+    dest: /root/server_tmp.tar.gz
+
+- name: 1-1解压文件
+  unarchive:
+    src: /root/server_tmp.tar.gz
+    dest: /data/
+    remote_src: yes
+
+- name: 1-2修改 /data/server_tmp/ 目录名为 /data/server{{ area_id }}/
+  shell: mv /data/server_tmp /data/server{{ area_id }}
+  args:
+    creates: /data/server{{ area_id }}/game/p8_app_server
+
+- name: 1-3修改权限
+  shell: |
+    find /data/server{{ area_id }} -type f -exec chmod 644 {} \;
+    find /data/server{{ area_id }} -type d -exec chmod 755 {} \;
+
+- name: 1-4复制server.app.lua.j2
+  template:
+    src: server.app.lua.j2
+    dest: /data/server{{ area_id }}/game/etc/server.app.lua
+
+- name: 1-5复制zones.lua.j2
+  template:
+    src: zones.lua.j2
+    dest: /data/server{{ area_id }}/game/etc/zones.lua
+
+- name: 1-6增加执行权限
+  file:
+    path: "{{item}}"
+    mode: 0744
+  loop:
+    - /data/server{{ area_id }}/game/p8_app_server
+    - /data/server{{ area_id }}/game/server.sh
+
+- name: 1-7执行/data/server{{ area_id }}/game/server.sh start
+  shell: "/data/server{{ area_id }}/game/server.sh start && sleep 5"
+
+- name: 1-8检测进程状态
+  shell: "pgrep -f /data/server{{ area_id }}/game/p8_app_server"
+  register: start_stat
+  ignore_errors: yes
+
+    #- name: 1-9如果检测不到进程，退出剧本
+    #  fail:
+    #    msg: "服务启动失败，已尝试启动但无进程"
+    #  when: start_stat.rc != 0

@@ -1,0 +1,48 @@
+﻿-- utf-8
+
+-- 域
+domain = "{{ domin }}"
+-- 本地地址
+ip = "{{ app_ip }}"
+-- 端口
+port = {{ app_port }}
+-- 地址
+server = string.format("tcp://0.0.0.0:%d", port)
+-- 互联互通
+cluster = string.format("tcp://%s:%d", ip, port)
+-- 线程数
+thread = 8
+-- 日志配置
+logger = "etc/server.log.ini"
+-- 时间偏移量
+time_offset = 0
+-- 时区
+time_zone = 8
+
+-- 服务发现
+discovers = {
+    {% for item in discovers %}
+    "tcp://{{item.zkip}}:{{item.zkport}}",
+    {% endfor %}
+}
+
+game_db = {
+    ["name"] = "{{ game_db.db_name }}",
+    ["host"] = "{{ game_db.db_host }}",
+    ["user"] = "{{ game_db.db_user }}",
+    ["password"] = "{{ game_db.db_password }}",
+}
+
+-- 组编号
+group_id = {{ group_id }}
+-- 区域编号
+area_id = {{ area_id }}
+
+-- 游戏服务
+game_index_num = {{ game_index_num }}
+-- kingnet回调地址
+pay_notify_url = "http://127.0.0.1:8088/p8/api/callback_kingnet.php"
+
+require("etc/services")
+require("etc/zones")
+require("etc/server")
