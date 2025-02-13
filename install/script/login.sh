@@ -1,6 +1,6 @@
 #!/bin/bash
 
-open_port=3346
+login_port=3346
 listFile="/data/ansible/install/list.txt"
 loginVars="/data/ansible/install/roles/login/vars"
 whiteFile="/data/ansible/install/shared_files/etc/white_list.txt"
@@ -74,7 +74,7 @@ main() {
     # 获取并处理数组
     items=($(to_arr_fun "$line_num")) || exit $?
 
-    export current_ip open_port
+    export current_ip login_port
     envsubst < "${loginVars}/main.yml.tmp" > "${loginVars}/main.yml" || error_exit "配置文件生成失败" 9
 
     : > "$whiteFile"
