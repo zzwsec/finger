@@ -1,0 +1,42 @@
+﻿-- utf-8
+
+-- 域
+domain = "{{ domin }}"
+-- 本地地址
+ip = "{{ current_ip }}"
+-- 端口3344
+port = {{ gate_port }}
+-- 地址
+server = string.format("tcp://0.0.0.0:%d", port)
+-- 互联互通
+cluster = string.format("tcp://%s:%d", ip, port)
+-- 线程数4
+thread = {{ thread }}
+-- 日志配置
+logger = "etc/server.log.ini"
+-- 时间偏移量
+time_offset = 0
+-- 时区
+time_zone = 8
+-- 外部地址
+extern_ip = "{{ extern_ip  }}"
+-- 服务发现
+discovers = {
+{% for item in discovers %}
+    "tcp://{{item.zkip}}:{{item.zkport}}",
+{% endfor %}
+}
+
+-- 组编号
+group_id = {{ group_id }}
+-- 网关20009
+gate_bind_port = {{ gate_bind_port  }}
+gate_bind_address = string.format("ws://0.0.0.0:%d", gate_bind_port)
+-- gate_extern_address = string.format("ws://%s:%d", extern_ip, gate_bind_port)
+gate_extern_address = string.format("wss://dev-gate.kxxkg.soletower.com")
+
+-- 服务列表
+services = {
+    gates = {},
+}
+require("etc/server")

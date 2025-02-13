@@ -1,12 +1,14 @@
 domin: p8-dev
-app_ip: ${current_ip}
-app_port: ${app_port}
+current_ip: ${current_ip} # 本地地址
+game_port: ${game_port} # 端口
+thread: 8
+pay_notify_url: http://127.0.0.1:8088/p8/api/callback_kingnet.php  #kingnet回调地址
 discovers:
   - zkip: 192.168.121.101
     zkport: 2881
-  - zkip: 192.168.121.102
+  - zkip: 192.168.121.101
     zkport: 2882
-  - zkip: 192.168.121.103
+  - zkip: 192.168.121.101
     zkport: 2883
 game_db:
   db_host: 192.168.121.101

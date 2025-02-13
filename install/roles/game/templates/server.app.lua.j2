@@ -3,15 +3,15 @@
 -- 域
 domain = "{{ domin }}"
 -- 本地地址
-ip = "{{ app_ip }}"
+ip = "{{ current_ip }}"
 -- 端口
-port = {{ app_port }}
+port = {{ game_port }}
 -- 地址
 server = string.format("tcp://0.0.0.0:%d", port)
 -- 互联互通
 cluster = string.format("tcp://%s:%d", ip, port)
 -- 线程数
-thread = 8
+thread = {{ thread }}
 -- 日志配置
 logger = "etc/server.log.ini"
 -- 时间偏移量
@@ -41,7 +41,7 @@ area_id = {{ area_id }}
 -- 游戏服务
 game_index_num = {{ game_index_num }}
 -- kingnet回调地址
-pay_notify_url = "http://127.0.0.1:8088/p8/api/callback_kingnet.php"
+pay_notify_url = "{{ pay_notify_url }}"
 
 require("etc/services")
 require("etc/zones")
