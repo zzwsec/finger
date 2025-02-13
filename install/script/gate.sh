@@ -42,36 +42,9 @@ get_host_name() {
     awk -v line="$line_num" 'NR==line {print $1; exit}' "$listFile" || error_exit "无法读取list.txt第${line_num}行" 4
 }
 
-# 通过行号获取数组
-to_arr_fun() {
-    local line_num=$1
-    local line
-    line=$(sed -n "${line_num}p" "$listFile") || error_exit "读取list.txt第${line_num}行失败" 5
-
-    if [[ ! $line =~ \[([^]]+)\] ]]; then
-        error_exit "list.txt第${line_num}行格式不正确" 6
-    fi
-
-    local arr=()
-    IFS=',' read -ra arr <<< "${BASH_REMATCH[1]}"
-    [[ ${#arr[@]} -eq 0 ]] && error_exit "第${line_num}行未找到有效编号" 7
-
-    # 清理空格并验证数字
-    local clean_arr=()
-    for item in "${arr[@]}"; do
-        num=$(echo "$item" | xargs)
-        [[ ! $num =~ ^[0-9]+$ ]] && error_exit "非法编号格式: $item" 12
-        clean_arr+=("$num")
-    done
-    echo "${clean_arr[@]}"
-}
-
 main() {
     current_ip=$(get_host_name "$line_num")
     [[ ! -f "${gateVars}/main.yml.tmp" ]] && error_exit "模板文件不存在" 8
-
-    # 获取并处理数组
-    items=($(to_arr_fun "$line_num")) || exit $?
 
     export current_ip gate_port
     envsubst < "${gateVars}/main.yml.tmp" > "${gateVars}/main.yml" || error_exit "配置文件生成失败" 9

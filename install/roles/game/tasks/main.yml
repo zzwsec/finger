@@ -21,7 +21,7 @@
     dest: /data/server{{ area_id }}/game
     remote_src: yes
 
-- name: 1-5 复制 etc 下除了 app 和 zone 之外所有的文件
+- name: 1-5 复制server.log.ini、server.lua、services.lua文件
   copy:
     src: "{{ item }}"
     dest: "/data/server{{ area_id }}/game/etc/{{ item | basename }}" 

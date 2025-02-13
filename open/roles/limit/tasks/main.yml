@@ -15,4 +15,4 @@
     dest: /data/server/login/etc/limit_create.txt
 
 - name: 1-2执行server.sh
-  shell: "/data/server/login/server.sh reload"
+  shell: "cd /data/server/login/ && ./server.sh reload && sleep 3"

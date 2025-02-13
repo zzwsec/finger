@@ -20,11 +20,11 @@
   ignore_errors: yes
 
 - name: 1-4进程存活时执行Reload
-  shell: "/data/server{{ svc_num }}/game/server.sh reload"
+  shell: "cd /data/server{{ svc_num }}/game/ && ./server.sh reload && sleep 3"
   when: svc_stat.rc == 0
 
 - name: 1-5进程不存在，尝试启动服务
-  shell: /data/server{{ svc_num }}/game/server.sh start
+  shell: "cd /data/server{{ svc_num }}/game/ && ./server.sh start && sleep 3"
   when: svc_stat.rc != 0
   ignore_errors: yes
 
@@ -35,8 +35,8 @@
 
 - name: 1-7检查启动是否成功
   fail:
-    msg: "服务启动失败，已尝试多次仍无进程"
+    msg: "服务启动失败，已尝试启动但仍无进程"
   when: start_attempt.rc != 0
   
 - name: 2-1执行server-login.sh
-  shell: "/data/server/login/server.sh reload"
+  shell: "cd /data/server/login/ && ./server.sh reload && sleep 3"
