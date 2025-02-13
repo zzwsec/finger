@@ -4,8 +4,6 @@
     state: directory
     mode: '0755'
 
-#/data/update/common.zip
-
 - name: 1-2 分发文件
   copy:
     src: "{{ common_dir }}/common.zip"
