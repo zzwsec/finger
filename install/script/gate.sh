@@ -70,9 +70,6 @@ main() {
     current_ip=$(get_host_name "$line_num")
     [[ ! -f "${gateVars}/main.yml.tmp" ]] && error_exit "模板文件不存在" 8
 
-    # 获取并处理数组
-    items=($(to_arr_fun "$line_num")) || exit $?
-
     export current_ip gate_port
     envsubst < "${gateVars}/main.yml.tmp" > "${gateVars}/main.yml" || error_exit "配置文件生成失败" 9
 
