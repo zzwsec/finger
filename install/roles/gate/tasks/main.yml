@@ -48,14 +48,14 @@
     - /data/server/gate/server.sh
 
 - name: 1-8 执行 /data/server/gate/server.sh start
-  shell: "/data/server/gate/server.sh start && sleep 5"
+  shell: "cd /data/server{{ area_id }}/game/ && ./server.sh start && sleep 3"
 
 - name: 1-9 检测进程状态
   shell: "pgrep -f /data/server/gate/p8_app_server"
   register: start_stat
   ignore_errors: yes
 
-# - name: 1-10 如果检测不到进程，退出剧本
-#   fail:
-#     msg: "服务启动失败，已尝试启动但无进程"
-#   when: start_stat.rc != 0
+- name: 1-10 如果检测不到进程，退出剧本
+  fail:
+    msg: "服务启动失败，已尝试启动但无进程"
+  when: start_stat.rc != 0
