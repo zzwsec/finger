@@ -1,56 +1,72 @@
+[root@an1 open]#cat daemon.sh
 #!/bin/bash
 
 host=192.168.121.120
 port=3306
 user=root
-password=root
-workDir="/data/ansible/open"
-init_file="${workDir}/init.txt"
-log_file="${workDir}/info.log"
-dataBase="cbt4_log"
+password='root'
+dataBase=cbt4_log
+initFile="/data/ansible/open/init.txt"
+logFile="/data/ansible/open/info.log"
 
-# 如果 init.txt 不存在，则创建并初始化
-if [[ ! -f "$init_file" ]]; then
-    echo "1" > "$init_file"
-fi
+while true; do
+    current_time=$(date "+%F %T")
 
-while :; do
-    run_svc_num=$(sed -n '$p' "$init_file")
-    next_run_svc_num=$((run_svc_num + 1))
-
-    sql="SELECT COUNT(id) FROM log_register WHERE zone_id=${run_svc_num}"
-    next_sql="SELECT COUNT(id) FROM log_register WHERE zone_id=${next_run_svc_num}"
-
-    # 执行 MySQL 查询
-    count_run_svc_num=$(mysql -u"$user" -p"$password" -h "$host" -P "$port" "$dataBase" -e "$sql" -s -N 2>/dev/null)
-    if [ $? -ne 0 ]; then
-        echo "数据库连接失败，退出" >> "$log_file"
+    if [ ! -s "$initFile" ]; then
+        echo "[ERROR] ${current_time}: $initFile 不存在或为空" >> "$logFile"
         exit 1
     fi
-    count_run_svc_next_num=$(mysql -u"$user" -p"$password" -h "$host" -P "$port" "$dataBase" -e "$next_sql" -s -N 2>/dev/null)
 
-    # 条件判断
-    if [[ -n "$count_run_svc_num" ]] && [[ "$count_run_svc_num" -ge 1000 ]]; then
-        if [[ -n "$count_run_svc_next_num" ]] && [[ "$count_run_svc_next_num" -eq 0 ]]; then
-            if cd "$workDir"; then
-                if ./install.sh "$next_run_svc_num" 1 &>/dev/null; then
-                    echo "$next_run_svc_num" > "$init_file"
-                    echo "[SUCCESS] 开启服务编号为：${next_run_svc_num}，开启成功" >> "$log_file"
-                else
-                    echo "[ERROR] 开启失败，服务编号: ${next_run_svc_num}" >> "$log_file"
-                    exit 2
-                fi
-            else
-                echo "[ERROR] 无法进入目录：$workDir" >> "$log_file"
-                exit 3
-            fi
+    # 获取当前服务编号
+    current_svc_num=$(tail -n 1 "$initFile")
+    if [[ ! $current_svc_num =~ ^[0-9]+$ ]]; then
+        echo "[ERROR] ${current_time}: init.txt 内容非法" >> "$logFile"
+        exit 2
+    fi
+
+    # 获取下一个服务编号玩家数
+    next_svc_num=$((current_svc_num + 1))
+
+    current_sql="SELECT COUNT(*) FROM ${dataBase}.log_register WHERE zone_id=${current_svc_num}"
+    next_sql="SELECT COUNT(*) FROM ${dataBase}.log_register WHERE zone_id=${next_svc_num}"
+
+    echo "[DEBUG] ${current_time}: current_sql=${current_sql}" >> "$logFile"
+    echo "[DEBUG] ${current_time}: next_sql=${next_sql}" >> "$logFile"
+
+    current_svc_count=$(mysql -u"$user" -p"$password" -h "$host" -P "$port" -e "${current_sql}" -s -N 2>/dev/null)
+    echo "[DEBUG] ${current_time}: current_svc_count=${current_svc_count}" >> "$logFile"
+
+    if [ $? -ne 0 ]; then
+        echo "[ERROR] ${current_time}: 查询当前服务编号: ${current_svc_num} 失败" >> "$logFile"
+        exit 3
+    fi
+
+    next_svc_count=$(mysql -u"$user" -p"$password" -h "$host" -P "$port" -e "${next_sql}" -s -N 2>/dev/null)
+    echo "[DEBUG] ${current_time}: next_svc_count=${next_svc_count}" >> "$logFile"
+
+    if [ $? -ne 0 ]; then
+        echo "[ERROR] ${current_time}: 查询下一个服务 ${next_svc_num} 失败" >> "$logFile"
+        exit 4
+    fi
+
+    if [[ -z "${next_svc_count}" ]] || [[ "${next_svc_count}" -ne 0 ]]; then
+        echo "[ERROR] ${current_time}: 下一个服务 ${next_svc_num} 已有玩家数据, 异常数据" >> "$logFile"
+        exit 4
+    fi
+
+    if [[ "${current_svc_count}" -ge 1000 ]]; then
+        echo "[INFO] ${current_time}: 满足扩容条件，开始部署 ${next_svc_num}" >> "$logFile"
+
+        if cd /data/ansible/open && ./install.sh "$next_svc_num" 1; then
+            echo "$next_svc_num" > "$initFile"
+            echo "[SUCCESS] ${current_time}: 成功更新服务编号至 ${next_svc_num}" >> "$logFile"
         else
-            echo "[ERROR] 当前服务编号：${run_svc_num}，下一服务数量：${count_run_svc_next_num}。下一个服务中人数不为空，退出" >> "$log_file"
-            exit 4
+            echo "[ERROR] ${current_time}: 服务 ${next_svc_num} 部署失败" >> "$logFile"
+            exit 5
         fi
     else
-        echo "[INFO] 当前服务编号：${run_svc_num}，数量：${count_run_svc_num}。未达到阈值" >> "$log_file"
+        echo "[INFO] ${current_time}: 当前服务 ${current_svc_num}，玩家数 ${current_svc_count}，未达条件" >> "$logFile"
     fi
+
     sleep 30
 done
-
