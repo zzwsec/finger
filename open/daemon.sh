@@ -1,4 +1,3 @@
-[root@an1 open]#cat daemon.sh
 #!/bin/bash
 
 host=192.168.121.120
@@ -65,7 +64,7 @@ while true; do
             exit 5
         fi
     else
-        echo "[INFO] ${current_time}: 当前服务 ${current_svc_num}，玩家数 ${current_svc_count}，未达条件" >> "$logFile"
+        echo "[INFO] ${current_time}: 当前服务 ${current_svc_num} 玩家数 ${current_svc_count} 未达条件" >> "$logFile"
     fi
 
     sleep 30
