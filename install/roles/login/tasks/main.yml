@@ -55,7 +55,7 @@
     - /data/server/login/server.sh
 
 - name: 1-9 执行/data/server/login/server.sh start
-  shell: "cd /data/server/login/ && server.sh start && sleep 3"
+  shell: "cd /data/server/login/ && ./server.sh start && sleep 3"
 
 - name: 1-10 检测进程状态
   shell: "pgrep -f /data/server/login/p8_app_server"
