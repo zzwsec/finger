@@ -1,8 +1,0 @@
-- name: 更新白名单相关任务
-  block:
-    - name: 1-1 修改白名单
-      shell: sed -i  -e "/{{ white_num }}/d"  -e '/^$/d' /data/server/login/etc/white_list.txt
-
-    - name: 2-2 执行 server.sh
-      shell: "cd /data/server/login && ./server.sh reload  && sleep 3"
-  when: white_num is defined and white_num != ''

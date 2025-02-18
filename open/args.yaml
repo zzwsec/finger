@@ -1,0 +1,6 @@
+pidFile: "/data/ansible/open/open.pid"
+dbHost: "192.168.121.120"
+dbPort: "3306"
+dbUser: "root"
+dbPassword: "root"
+dbName: "cbt4_log"
