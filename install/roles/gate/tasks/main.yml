@@ -48,7 +48,9 @@
     - /data/server/gate/server.sh
 
 - name: 1-8 执行 /data/server/gate/server.sh start
-  shell: "cd /data/server/gate/ && ./server.sh start && sleep 3"
+  shell: "./server.sh start && sleep 3"
+  args:
+    chdir: /data/server/gate/
 
 - name: 1-9 检测进程状态
   shell: "pgrep -f /data/server/gate/p8_app_server"

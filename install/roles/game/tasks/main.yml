@@ -52,7 +52,9 @@
     - /data/server{{ area_id }}/game/server.sh
 
 - name: 1-9 执行 /data/server{{ area_id }}/game/server.sh start
-  shell: "cd /data/server{{ area_id }}/game/ && ./server.sh start && sleep 3"
+  shell: "./server.sh start && sleep 3"
+  args:
+    chdir: /data/server{{ area_id }}/game/
 
 - name: 1-10 检测进程状态
   shell: "pgrep -f /data/server{{ area_id }}/game/p8_app_server"
