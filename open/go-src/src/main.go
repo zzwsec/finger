@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	listFile      = "/data/ansible/list.txt"
+	listFile      = "/data/ansible/open/list.txt"
 	initFile      = "/data/ansible/open/init.txt"
 	whiteYamlFile = "/data/ansible/open/playbook/white.yaml"
 	openYamlFile  = "/data/ansible/open/playbook/open.yaml"
