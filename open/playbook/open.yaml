@@ -23,7 +23,7 @@
       ignore_errors: yes
     
     - name: 1-4 进程存活时执行Reload
-      shell: "./server.sh reload && sleep 3"
+      shell: "./server.sh reload && sleep 1 && ./server.sh reload && sleep 1"
       args:
         chdir: /data/server{{ svc_num }}/game/
       when: svc_stat.rc == 0
