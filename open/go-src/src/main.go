@@ -312,7 +312,7 @@ func handleServerSwitch(oldNum, newNum int) bool {
 		{"白名单更新", updateWhitelist, newNum},
 		{"开放时间", updateOpenTime, newNum},
 		{"限制名单", updateLimit, oldNum},
-		{"清理日志", cleanLogs, oldNum},
+		{"清理日志", cleanLogs, newNum},
 	}
 
 	for _, op := range ops {
