@@ -5,6 +5,6 @@ services:
     volumes:
       - ./list.txt:/open/list.txt
       - ./init.txt:/open/init.txt
-      - ./args.yaml:/args.yaml
+      - ./args.yaml:/open/args.yaml
       - /root/.ssh/:/root/.ssh/:ro
     network_mode: bridge
