@@ -1,5 +1,4 @@
-pidFile: "/open/open.pid"
-dbHost: "192.168.121.120"
+dbHost: "192.168.121.103"
 dbPort: "3306"
 dbUser: "root"
 dbPassword: "root"

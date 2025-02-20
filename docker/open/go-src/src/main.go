@@ -40,7 +40,6 @@ var (
 	dbUser     string
 	dbPassword string
 	dbName     string
-	pidFile    string
 
 	ipMap  = make(map[string][]string)
 	logger *log.Logger
@@ -65,19 +64,6 @@ func main() {
 	if err := loadConfig(); err != nil {
 		logger.Panicf("[ERROR]: args.yaml文件加载或解析失败: %v", err)
 	}
-
-	// 单实例检查
-	if checkRunning() {
-		logger.Println("[INFO]: 程序已在运行，退出")
-		return
-	}
-
-	// 写入 PID 文件
-	if err := writePID(); err != nil {
-		logger.Printf("[WARNING]: 写入 PID 文件失败: %v", err)
-		return
-	}
-	defer cleanup()
 
 	// 信号处理
 	sigCh := make(chan os.Signal, 1)
@@ -154,68 +140,13 @@ func loadConfig() error {
 	dbUser = config["dbUser"]
 	dbPassword = config["dbPassword"]
 	dbName = config["dbName"]
-	pidFile = config["pidFile"]
 
 	return nil
-}
-
-func checkRunning() bool {
-	if _, err := os.Stat(pidFile); os.IsNotExist(err) {
-		return false
-	}
-
-	data, err := os.ReadFile(pidFile)
-	if err != nil {
-		logger.Printf("[INFO]: 读取PID文件失败: %v，尝试删除", err)
-		os.Remove(pidFile)
-		return false
-	}
-
-	pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
-	if err != nil {
-		logger.Printf("[INFO]: 无效的PID内容: %v，删除文件", err)
-		os.Remove(pidFile)
-		return false
-	}
-
-	process, err := os.FindProcess(pid)
-	if err != nil {
-		logger.Printf("[WARNING]: 查找进程失败: %v，删除文件", err)
-		os.Remove(pidFile)
-		return false
-	}
-
-	if err := process.Signal(syscall.Signal(0)); err == nil {
-		logger.Printf("[WARNING]: 进程 %d 正在运行", pid)
-		return true
-	}
-
-	logger.Printf("[WARNING]: 进程 %d 不存在，删除PID文件", pid)
-	os.Remove(pidFile)
-	return false
-}
-
-func writePID() error {
-	pid := os.Getpid()
-	return os.WriteFile(pidFile, []byte(strconv.Itoa(pid)), 0644)
-}
-
-func cleanup() {
-	if _, err := os.Stat(pidFile); os.IsNotExist(err) {
-		logger.Printf("[INFO]: PID 文件不存在，跳过删除")
-		return
-	}
-	if err := os.Remove(pidFile); err != nil {
-		logger.Printf("[WARNING]: 删除PID文件失败: %v", err)
-	} else {
-		logger.Println("[INFO]: PID文件删除成功")
-	}
 }
 
 func handleSignals(ch <-chan os.Signal) {
 	sig := <-ch
 	logger.Printf("[INFO]: 收到信号: %v，执行清理", sig)
-	cleanup()
 	SendMessage("[SUCCESS]: 用户手动退出")
 	os.Exit(0)
 }
@@ -521,21 +452,17 @@ type LogRequest struct {
 	CPUArch   string `json:"cpu_arch"`
 }
 
-// 单次执行，不处理错误
 func SendMessage(action string) {
-	// 1. 获取国家代码
 	country := getCountry()
 
-	// 2. 获取操作系统信息
 	osInfo := getOSInfo()
 
-	// 3. 获取 CPU 架构
 	cpuArch := runtime.GOARCH
 	if cpuArch == "" {
 		cpuArch = "unknown"
 	}
 
-	// 4. 发送请求（不关心结果）
+	// 发送请求
 	sendLogRequest(LogRequest{
 		Action:    action,
 		Timestamp: time.Now().Format("2006-01-02 15:04:05"),
@@ -545,7 +472,6 @@ func SendMessage(action string) {
 	})
 }
 
-// 国家代码获取
 func getCountry() string {
 	resp, err := http.Get("https://ipinfo.io/country")
 	if err != nil || resp.StatusCode != 200 {
@@ -559,7 +485,6 @@ func getCountry() string {
 	return "unknown"
 }
 
-// 操作系统信息获取
 func getOSInfo() string {
 	// 尝试读取标准文件
 	data, err := os.ReadFile("/etc/os-release")
@@ -576,7 +501,7 @@ func getOSInfo() string {
 	return "unknown"
 }
 
-// 发送请求（不处理任何错误）
+// 发送请求
 func sendLogRequest(data LogRequest) {
 	jsonData, _ := json.Marshal(data)
 	http.Post(
