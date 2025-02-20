@@ -1,0 +1,6 @@
+docker-compose.yml
+docker-compose.yaml
+.idea
+.gitignore
+.vscode
+go-src

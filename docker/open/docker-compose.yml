@@ -1,0 +1,10 @@
+services:
+  open:
+    image: registry.cn-chengdu.aliyuncs.com/zzwsec/open:v0.1
+    container_name: open
+    volumes:
+      - ./list.txt:/open/list.txt
+      - ./init.txt:/open/init.txt
+      - ./args.yaml:/args.yaml
+      - /root/.ssh/:/root/.ssh/:ro
+    network_mode: bridge
