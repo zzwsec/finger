@@ -1,0 +1,24 @@
+- hosts: "{{ host_name }}"
+  tasks:
+    # ========== 基础准备任务 ==========
+    - name: 1.检查更新目录是否存在
+      file:
+        path: /data/update
+        state: directory
+        mode: '0755'
+
+    - name: 2.删除旧full目录
+      file:
+        path: /data/update/full
+        state: absent
+
+    - name: 3.分发全量包
+      copy:
+        src: "{{ playbook_dir }}/../update-file/full.zip"
+        dest: /data/update/full.zip
+
+    - name: 4.解压更新包
+      unarchive:
+        src: /data/update/full.zip
+        dest: /data/update/
+        remote_src: yes

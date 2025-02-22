@@ -14,7 +14,7 @@
     
     - name: 1-2 分发时间文件
       template:
-        src: file/open_time.lua.j2
+        src: update-file/open_time.lua.j2
         dest: /data/server{{ svc_num }}/game/lua/config/open_time.lua
     
     - name: 1-3 初始检测进程状态

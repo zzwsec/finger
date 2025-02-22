@@ -4,11 +4,37 @@
     <option name="autoReloadType" value="ALL" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="9c394fd5-4138-4c26-a698-edaf8af1e5f8" name="更改" comment="" />
+    <list default="true" id="9c394fd5-4138-4c26-a698-edaf8af1e5f8" name="更改" comment="">
+      <change afterPath="$PROJECT_DIR$/updateserver-full/go.mod" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/updateserver-full/playbook/base.yaml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/updateserver-full/playbook/game-entry.yaml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/updateserver-full/playbook/gate.yaml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/updateserver-full/playbook/login.yaml" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/updateserver-full/update-list/gate_list.txt" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/updateserver-full/update-list/login_list.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/docker/open/playbook/open.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/docker/open/playbook/open.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/open/playbook/open.yaml" beforeDir="false" afterPath="$PROJECT_DIR$/open/playbook/open.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/updateserver-full/ansible.cfg" beforeDir="false" afterPath="$PROJECT_DIR$/updateserver-full/ansible.cfg" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/updateserver-full/example.yml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/updateserver-full/file/full.zip" beforeDir="false" afterPath="$PROJECT_DIR$/updateserver-full/update-file/full.zip" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/updateserver-full/full-linux" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/updateserver-full/go-src/go.mod" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/updateserver-full/go-src/main.go" beforeDir="false" afterPath="$PROJECT_DIR$/updateserver-full/main.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/updateserver-full/sub_tasks.yml" beforeDir="false" afterPath="$PROJECT_DIR$/updateserver-full/playbook/game.yaml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/updateserver-full/update_list.txt" beforeDir="false" afterPath="$PROJECT_DIR$/updateserver-full/update-list/game_list.txt" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Go File" />
+      </list>
+    </option>
   </component>
   <component name="GOROOT" url="file://C:/zzwsec/soft/go" />
   <component name="Git.Settings">
@@ -30,12 +56,19 @@
   &quot;associatedIndex&quot;: 8
 }</component>
   <component name="ProjectId" id="2tHhH15AlmDG8KojK02Oy0VEHpw" />
+  <component name="ProjectLevelVcsManager">
+    <OptionsSetting value="false" id="Update" />
+    <ConfirmationsSetting value="2" id="Add" />
+  </component>
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
   <component name="PropertiesComponent"><![CDATA[{
   "keyToString": {
+    "DefaultGoTemplateProperty": "Go File",
+    "Go 构建.go build test.go.executor": "Run",
+    "Go 构建.go build updateserver-full.executor": "Debug",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.git.unshallow": "true",
     "RunOnceActivity.go.formatter.settings.were.checked": "true",
@@ -44,13 +77,48 @@
     "git-widget-placeholder": "dev",
     "go.import.settings.migrated": "true",
     "go.sdk.automatically.set": "true",
-    "last_opened_file_path": "C:/Users/zzwsec",
+    "last_opened_file_path": "D:/finger/updateserver-full/playbook",
     "node.js.detected.package.eslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
     "nodejs_package_manager_path": "npm",
     "settings.editor.selected.configurable": "preferences.pluginManager"
   }
 }]]></component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="D:\finger\updateserver-full\playbook" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="D:\finger\updateserver-full" />
+      <recent name="D:\finger\updateserver-full\go-src\update-list" />
+      <recent name="D:\finger\updateserver-full\go-src" />
+    </key>
+  </component>
+  <component name="RunManager" selected="Go 构建.go build updateserver-full">
+    <configuration name="go build test.go" type="GoApplicationRunConfiguration" factoryName="Go Application" temporary="true" nameIsGenerated="true">
+      <module name="finger" />
+      <working_directory value="$PROJECT_DIR$/updateserver-full" />
+      <kind value="FILE" />
+      <directory value="$PROJECT_DIR$" />
+      <filePath value="$PROJECT_DIR$/updateserver-full/test.go" />
+      <method v="2" />
+    </configuration>
+    <configuration name="go build updateserver-full" type="GoApplicationRunConfiguration" factoryName="Go Application" temporary="true" nameIsGenerated="true">
+      <module name="finger" />
+      <working_directory value="$PROJECT_DIR$/updateserver-full" />
+      <kind value="PACKAGE" />
+      <package value="updateserver-full" />
+      <directory value="$PROJECT_DIR$" />
+      <filePath value="$PROJECT_DIR$/updateserver-full/main.go" />
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Go 构建.go build updateserver-full" />
+        <item itemvalue="Go 构建.go build test.go" />
+      </list>
+    </recent_temporary>
+  </component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
@@ -62,6 +130,9 @@
   <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="应用程序级" UseSingleDictionary="true" transferred="true" />
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
+  </component>
+  <component name="UnknownFeatures">
+    <option featureType="com.intellij.fileTypeFactory" implementationName="*.cfg" />
   </component>
   <component name="VgoProject">
     <settings-migrated>true</settings-migrated>
