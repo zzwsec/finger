@@ -1,6 +1,6 @@
-domin: p8-dev
+domain: p8-dev
 current_ip: ${current_ip}
-login_port: ${login_port}
+login_port: 3346
 thread: 4
 discovers:
   - zkip: 192.168.121.101

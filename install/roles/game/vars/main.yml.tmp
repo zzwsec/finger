@@ -1,5 +1,5 @@
-domin: p8-dev
-current_ip: ${current_ip} # 本地地址
+domain: p8-dev
+current_ip: ${current_ip} # 本地内网ip
 game_port: ${game_port} # 端口
 thread: 8
 pay_notify_url: http://127.0.0.1:8088/p8/api/callback_kingnet.php  #kingnet回调地址
@@ -15,6 +15,6 @@ game_db:
   db_user: root
   db_password: dbpass
   db_name: root
-group_id: 1
+group_id: ${group_id}  #从game_list.txt文件中获取，第四列
 area_id: ${server_num}
 game_index_num: 2

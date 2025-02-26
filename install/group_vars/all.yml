@@ -1,1 +1,1 @@
-common_dir: "{{ playbook_dir }}/shared_files"
+install_dir: "{{ playbook_dir }}/shared_files"

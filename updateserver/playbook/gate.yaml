@@ -1,0 +1,54 @@
+- hosts: "{{ host_name }}"
+  tasks:
+    # ========== 停止gate ==========
+    - name: 检测gate进程
+      shell: "pgrep -f /data/server/gate/p8_app_server"
+      register: gate_stat
+      ignore_errors: yes
+      tags:
+        - gate-stop
+
+    - name: 执行停止gate
+      shell: "./server.sh stop && sleep 3"
+      args:
+        chdir: /data/server/gate/
+      when: gate_stat.rc == 0
+      tags:
+        - gate-stop
+
+    # ========== 启动gate ==========
+    - name: gate复制更新包
+      copy:
+        src: /data/update/full/
+        dest: "/data/server/gate/"
+        remote_src: yes
+      tags:
+        - gate-start
+
+    - name: 清理gate下nohup.txt
+      file:
+        path: /data/server/gate/nohup.txt
+        state: absent
+      tags:
+        - gate-start
+
+    - name: 8-2.启动gate
+      shell: "./server.sh start && sleep 3"
+      args:
+        chdir: /data/server/gate/
+      tags:
+        - gate-start
+
+    - name: 8-2.验证gate状态
+      shell: "pgrep -f /data/server/gate/p8_app_server"
+      register: gate_stat
+      ignore_errors: yes
+      tags:
+        - gate-start
+
+    - name: 8-2.gate失败时处理
+      fail:
+        msg: "gate启动失败"
+      when: gate_stat.rc != 0
+      tags:
+        - gate-start

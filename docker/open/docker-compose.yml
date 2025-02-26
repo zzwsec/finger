@@ -3,7 +3,7 @@ services:
     image: registry.cn-chengdu.aliyuncs.com/zzwsec/open:v0.1
     container_name: open
     volumes:
-      - ./list.txt:/open/list.txt
+      - ./game_list.txt:/open/game_list.txt
       - ./init.txt:/open/init.txt
       - ./args.yaml:/open/args.yaml
       - /root/.ssh/:/root/.ssh/:ro

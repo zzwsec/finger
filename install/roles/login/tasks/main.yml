@@ -7,8 +7,8 @@
 
 - name: 1-1 分发文件
   copy:
-    src: "{{ common_dir }}/common.zip"
-    dest: /data/update/common.zip
+    src: "{{ install_dir }}/install.zip"
+    dest: /data/update/install.zip
 
 - name: 1-2 创建解压目录
   file:
@@ -18,7 +18,7 @@
 
 - name: 1-3 解压文件
   unarchive:
-    src: /data/update/common.zip
+    src: /data/update/install.zip
     dest: /data/server/login
     remote_src: yes
 
@@ -27,9 +27,9 @@
     src: "{{ item }}"
     dest: "/data/server/login/etc/{{ item | basename }}"
   loop:
-    - "{{ common_dir }}/etc/server.log.ini"
-    - "{{ common_dir }}/etc/server.lua"
-    - "{{ common_dir }}/etc/white_list.txt"
+    - "{{ install_dir }}/etc/server.log.ini"
+    - "{{ install_dir }}/etc/server.lua"
+    - "{{ install_dir }}/etc/white_list.txt"
 
 - name: 1-5 生成空白limit_create.txt文件
   file:
@@ -49,7 +49,7 @@
 - name: 1-8 增加执行权限
   file:
     path: "{{item}}"
-    mode: 0744
+    mode: "0744"
   loop:
     - /data/server/login/p8_app_server
     - /data/server/login/server.sh

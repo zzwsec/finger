@@ -14,7 +14,7 @@
     
     - name: 1-2 分发时间文件
       template:
-        src: update-file/open_time.lua.j2
+        src: file/open_time.lua.j2
         dest: /data/server{{ svc_num }}/game/lua/config/open_time.lua
     
     - name: 1-3 初始检测进程状态
@@ -44,8 +44,3 @@
       fail:
         msg: "服务未运行，操作后仍无法启动"
       when: start_attempt.rc != 0
-    
-    - name: 2-1 执行server-login.sh
-      shell: "./server.sh reload && sleep 3"
-      args:
-        chdir: /data/server/login/

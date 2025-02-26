@@ -1,8 +1,0 @@
-- hosts: "{{ host_name }}"
-  tasks:
-    # ========== 处理每个game实例 ==========
-    - name: 动态处理game实例
-      include_tasks: game.yaml
-      loop: "{{ game_servers | default([]) }}"
-      loop_control:
-        loop_var: server_id

@@ -1,4 +1,4 @@
-domin: p8-dev
+domain: p8-dev
 current_ip: ${current_ip} # 本地地址
 gate_port : ${gate_port}
 thread: 4
@@ -10,5 +10,5 @@ discovers:
     zkport: 2882
   - zkip: 192.168.121.101
     zkport: 2883
-group_id: 1
+group_id: ${group_id}
 gate_bind_port: 20009

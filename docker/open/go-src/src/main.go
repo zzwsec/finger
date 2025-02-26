@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	listFile         = "/open/list.txt"
+	listFile         = "/open/game_list.txt"
 	initFile         = "/open/init.txt"
 	whiteYamlFile    = "/open/playbook/white.yaml"
 	openYamlFile     = "/open/playbook/open.yaml"
