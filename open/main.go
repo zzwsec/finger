@@ -579,10 +579,11 @@ func loadIpMap() {
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := scanner.Text()
-		parts := strings.Fields(line)
-		if len(parts) != 4 {
+		tmpString := strings.TrimSpace(line)
+		if tmpString == "" {
 			continue
 		}
+		parts := strings.Fields(line)
 
 		ip := parts[0]
 		numbers := strings.Split(parts[1][1:len(parts[1])-1], ",")
