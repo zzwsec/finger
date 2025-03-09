@@ -1,8 +1,8 @@
 domain: p8-dev
-current_ip: ${current_ip} # 本地内网ip
+current_ip: ${current_ip} # 本地内网 ip
 game_port: ${game_port} # 端口
 thread: 8
-pay_notify_url: http://127.0.0.1:8088/p8/api/callback_kingnet.php  #kingnet回调地址
+pay_notify_url: http://127.0.0.1:8088/p8/api/callback_kingnet.php  #kingnet 回调地址
 discovers:
   - zkip: 192.168.121.101
     zkport: 2881
@@ -15,6 +15,6 @@ game_db:
   db_user: root
   db_password: 123456
   db_name: cbt4_game_${server_num}
-group_id: ${group_id}  #从game_list.txt文件中获取，第四列
+group_id: ${group_id}
 area_id: ${server_num}
 game_index_num: 2
