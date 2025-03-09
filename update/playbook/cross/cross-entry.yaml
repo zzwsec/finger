@@ -1,0 +1,40 @@
+- hosts: cross
+  tasks:
+    - name: 检查 cross 目录
+      shell: "find /data -maxdepth 1 -type d -name 'crossserver*' -printf '%f\n'"
+      register: cross_list
+      changed_when: false
+
+    - name: 分发 groups.lua 到 cross
+      copy:
+        src: groups.lua
+        dest: "/data/{{ item }}/etc/groups.lua"
+        mode: 0644
+      loop: "{{ cross_list.stdout_lines }}"
+      tags: groups
+
+    - name: 分发更新压缩包
+      copy:
+        src: "{{ playbook_dir }}/../../file/increment.zip"
+        dest: /data/update/increment.zip
+      tags: increment
+
+    - name: 删除原本的 app 目录
+      file:
+        path: /data/update/app
+        state: absent
+
+    - name: 执行解压
+      unarchive:
+        src: /data/update/increment.zip
+        dest: /data/update/
+        remote_src: yes
+        mode: '0644'
+        directory_mode: '0755'
+      tags: increment
+
+    - name: 动态处理 cross 实例
+      include_tasks: cross.yaml
+      loop: "{{ cross_list.stdout_lines }}"
+      loop_control:
+        loop_var: cross_item

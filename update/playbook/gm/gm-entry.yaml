@@ -1,0 +1,31 @@
+- hosts: gm
+  tasks:
+    - name: 检查 gm 目录
+      shell: "find /data -maxdepth 1 -type d -name 'gmserver[0-9]*' -printf '%f\n'"
+      register: gm_list
+      changed_when: false
+
+    - name: 分发更新压缩包
+      copy:
+        src: "{{ playbook_dir }}/../../file/increment.zip"
+        dest: /data/update/increment.zip
+      tags: increment
+
+    - name: 删除原本的 app 目录
+      file:
+        path: /data/update/app
+        state: absent
+
+    - name: 执行解压
+      unarchive:
+        src: /data/update/increment.zip
+        dest: /data/update/
+        remote_src: yes
+        mode: '0644'
+        directory_mode: '0755'
+
+    - name: 动态处理 gm 实例
+      include_tasks: gm.yaml
+      loop: "{{ gm_list.stdout_lines }}"
+      loop_control:
+        loop_var: gm_item

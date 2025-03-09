@@ -1,0 +1,22 @@
+- name: 复制文件
+  copy:
+    src: /data/update/app/
+    dest: /data/{{ game_item }}/game/
+    mode: '0644'
+    directory_mode: '0755'
+  tags: increment
+
+- name: 过滤 {{ game_item }} 进程
+  shell: pgrep -af '/data/{{ game_item }}/game/p8_app_server'
+  register: game_stat
+  ignore_errors: yes
+
+- name: Reload game 进程（若存在）
+  shell: "./server.sh reload"
+  args:
+    chdir: "/data/{{ game_item }}/game/"
+  when: game_stat.rc == 0
+
+- name: 睡 1 秒
+  pause:
+    seconds: 1
