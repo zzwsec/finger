@@ -4,9 +4,9 @@
 
 set -o nounset
 
-yellow='\033[1;33m'
-red='\033[1;31m'
-green='\033[1;32m'
+red='\033[91m'
+green='\033[92m'
+yellow='\033[93m'
 white='\033[0m'
 
 _err_msg() { echo -e "\033[41m\033[1m警告${white} $*"; }

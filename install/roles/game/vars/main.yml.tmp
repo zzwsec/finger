@@ -18,3 +18,4 @@ game_db:
 group_id: ${group_id}
 area_id: ${server_num}
 game_index_num: 2
+open_time: "{{ lookup('pipe', 'date +\"%Y-%m-%dT%H:00:00\"') }}"

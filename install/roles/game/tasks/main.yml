@@ -11,7 +11,7 @@
 
 - name: 1-3 创建解压目录
   file:
-    path: /data/server{{ area_id }}/game/etc/
+    path: /data/server{{ area_id }}/game/
     state: directory
     mode: '0755'
 
@@ -21,29 +21,23 @@
     dest: /data/server{{ area_id }}/game/
     remote_src: yes
 
-- name: 1-5 复制server.log.ini、server.lua、services.lua、groups.lua文件
-  copy:
-    src: "{{ item }}"
-    dest: "/data/server{{ area_id }}/game/etc/{{ item | basename }}"
-    mode: '0644'
-  loop:
-    - "etc/server.log.ini"
-    - "etc/server.lua"
-    - "etc/services.lua"
-    - "etc/groups.lua"
-
-- name: 1-6 修改权限
+- name: 1-5 修改权限
   shell: |
     find /data/server{{ area_id }} -type f -exec chmod 644 {} \;
     find /data/server{{ area_id }} -type d -exec chmod 755 {} \;
 
-- name: 1-7 复制 server.app.lua.j2 和 zones.lua.j2
+- name: 1-6 复制 server.app.lua.j2 和 zones.lua.j2
   template:
     src: "{{ item }}.j2"
     dest: "/data/server{{ area_id }}/game/etc/{{ item }}"
   loop:
     - server.app.lua
     - zones.lua
+
+- name: 1-7 复制 open_time.lua.j2
+  template:
+    src: open_time.lua.j2
+    dest: /data/server{{ area_id }}/game/lua/config/open_time.lua
 
 - name: 1-8 增加执行权限
   file:

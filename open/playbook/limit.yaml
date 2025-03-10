@@ -1,23 +1,13 @@
 - hosts: "{{host_name}}"
   tasks:
-    - name: 0-1 limit-yaml 检查文件夹是否存在
-      stat:
-        path: /data/server
-      register: folder_status
-    
-    - name: 0-2 limit-yaml 当文件夹不存在时退出剧本
-      fail:
-        msg: "目录 /data/server 不存在，终止剧本执行。"
-      when: not folder_status.stat.exists
-    
     - name: 1-1 limit-yaml svc编号放入到limit文件中
       lineinfile:
-        path: /data/server/login/etc/limit_create.txt
+        path: /data/server/white-limit/limit_create.txt
         line: "{{ svc_num }}"
         create: yes
     
     - name: 1-2 limit-yaml 使用临时文件存放, 排序并去重 limit_create.txt
-      shell: "sort -n /data/server/login/etc/limit_create.txt | uniq > /data/server/login/etc/limit_create_sorted.txt"
+      shell: "sort -n /data/server/white-limit/limit_create.txt | uniq > /data/server/white-limit/limit_create_sorted.txt"
     
     - name: 1-3 limit-yaml 替换文件为去重后的内容
-      command: mv /data/server/login/etc/limit_create_sorted.txt /data/server/login/etc/limit_create.txt
+      command: mv /data/server/white-limit/limit_create_sorted.txt /data/server/white-limit/limit_create.txt

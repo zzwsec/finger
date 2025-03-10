@@ -75,9 +75,8 @@ func main() {
 	defer logFile.Close()
 
 	// 前置验证
-	validateGameList()  // 检查game_list.txt文件有效性
-	loadIpMap()         // 获取game_list.txt中ip和服务编号的map
-	validateLoginList() // 检查login_list.txt文件有效性
+	validateGameList() // 检查 game_list.txt 文件有效性
+	loadIpMap()        // 获取 game_list.txt 中 ip 和服务编号的 map
 
 	// 加载配置
 	if err := loadConfig(); err != nil {
@@ -159,7 +158,7 @@ func mainLoop(db *sql.DB) {
 			}
 		}
 
-		sleep()
+		time.Sleep(30 * time.Second)
 	}
 }
 
@@ -169,10 +168,6 @@ func handleSignals(ch <-chan os.Signal) {
 	cleanup()
 	SendMessage("用户手动退出")
 	os.Exit(0)
-}
-
-func sleep() {
-	time.Sleep(30 * time.Second)
 }
 
 func handleServerSwitch(oldNum, newNum int) bool {
@@ -244,7 +239,6 @@ func cleanLogs(num int) error {
 }
 
 func initLogging() (err error) {
-	// 打开日志文件
 	logFile, err = os.OpenFile(filepath.Join(currentDir, logFileName), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		return fmt.Errorf("无法打开日志文件: %v", err)
@@ -632,10 +626,6 @@ func validateGameList() {
 				logger.Panicf("第%d行服务编号包含无效数字: %s", lineNum, n)
 			}
 		}
-
-		if _, err := strconv.Atoi(parts[2]); err != nil {
-			logger.Panicf("第%d行映射login服务为无效数字", lineNum)
-		}
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -643,46 +633,35 @@ func validateGameList() {
 	}
 }
 
-// 主要检查login_list.txt中第二列的值是否是唯一
 func validateLoginList() {
-	loginListPath := filepath.Join(currentDir, openListDir, loginListFileName)
-	file, err := os.Open(loginListPath)
+	file, err := os.Open(filepath.Join(currentDir, openListDir, loginListFileName))
 	if err != nil {
-		log.Fatalf("无法打开login_list.txt文件: %v", err)
+		logger.Panicf("无法打开 login 列表文件: %v", err)
 	}
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
-	loginValues := make(map[string]bool)
-
+	lineNum := 0
 	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
+		lineNum++
+		line := scanner.Text()
+
+		// 跳过空行
+		tmpString := strings.TrimSpace(line)
+		if tmpString == "" {
 			continue
 		}
 
-		fields := strings.Fields(line)
-		if len(fields) < 2 {
-			log.Fatalf("格式错误: %s", line)
+		parts := strings.Fields(line)
+		if net.ParseIP(parts[0]) == nil {
+			logger.Panicf("第%d行包含无效IP: %s", lineNum, parts[0])
 		}
-
-		if net.ParseIP(fields[0]) == nil {
-			logger.Panicf("login_list.txt包含无效IP: %s", fields[0])
-		}
-
-		loginValue := fields[1]
-		if loginValues[loginValue] {
-			// 如果能成功取出值，说明有重复的键
-			log.Fatalf("重复的login值: %s", loginValue)
-		}
-		loginValues[loginValue] = true
 	}
 
 	if err := scanner.Err(); err != nil {
-		log.Fatalf("读取login_list.txt时出错: %v", err)
+		logger.Panicf("文件读取错误: %v", err)
 	}
 }
-
 func validateNextServer(num int) bool {
 	_, err := getServerIP(num)
 	if err != nil {

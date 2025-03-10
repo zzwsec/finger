@@ -33,8 +33,7 @@
       args:
         chdir: /data/server{{ svc_num }}/game/
       when: svc_stat.rc != 0
-      ignore_errors: yes
-    
+
     - name: 1-6 最终检测进程状态
       shell: "pgrep -f /data/server{{ svc_num }}/game/p8_app_server"
       register: start_attempt

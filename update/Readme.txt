@@ -12,3 +12,16 @@ step3:
 step4:
     name: 启动
     tips: bash start.sh
+
+====================================================================
+单独执行剧本使用如下方式：
+
+更新groups:
+  - cross: ansible-playbook playbook/cross/cross-entry.yaml -t groups
+  - game: ansible-playbook playbook/game/game-entry.yaml -t groups
+
+其他类型更新:
+  - cross: ansible-playbook playbook/cross/cross-entry.yaml -t increment
+  - game: ansible-playbook playbook/game/game-entry.yaml -t increment
+  - gm: ansible-playbook playbook/gm/gm-entry.yaml
+  - log: ansible-playbook playbook/log/log-entry.yaml
