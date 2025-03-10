@@ -20,4 +20,4 @@ step5:
 
 step6:
     name: 启动
-    tips: bash game.sh
+    tips: bash game.sh 服务编号
