@@ -4,19 +4,29 @@
     dest: /data/{{ cross_item }}/
     mode: '0644'
     directory_mode: '0755'
+    remote_src: yes
   tags: increment
 
 - name: 过滤 cross 进程
   shell: pgrep -af '/data/{{ cross_item }}/p8_app_server'
   register: cross_stat
   ignore_errors: yes
+  tags:
+    - groups
+    - increment
 
 - name: Reload cross 进程（若存在）
   shell: "./server.sh reload && sleep 1 && ./server.sh reload"
   args:
     chdir: "/data/{{ cross_item }}"
   when: cross_stat.rc == 0
+  tags:
+    - groups
+    - increment
 
 - name: 睡 1 秒
   pause:
     seconds: 1
+  tags:
+    - groups
+    - increment

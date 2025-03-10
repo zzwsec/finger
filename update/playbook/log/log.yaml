@@ -3,18 +3,18 @@
     src: /data/update/app/
     dest: /data/{{ log_item }}/
     mode: '0644'
+    remote_src: yes
     directory_mode: '0755'
-  tags: increment
 
 - name: 过滤 {{ log_item }} 进程
   shell: pgrep -af '/data/{{ log_item }}/p8_app_server'
   register: log_stat
   ignore_errors: yes
 
-- name: Reload game 进程（若存在）
+- name: Reload log 进程（若存在）
   shell: "./server.sh reload"
   args:
-    chdir: "/data/{{ log_item }}/game/"
+    chdir: "/data/{{ log_item }}/"
   when: log_stat.rc == 0
 
 - name: 睡 1 秒

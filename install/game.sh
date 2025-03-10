@@ -44,7 +44,7 @@ get_group_id() {
 #获取服务编号的偏移量
 get_index() {
   local line
-  read -ra line <(awk -v current_ip="$current_ip" '$1==current_ip {print $2; exit}' "$gameListFile" | tr -d '[]' | tr ',' ' ')
+  IFS=' ' read -ra line <<< "$(awk -v current_ip="$current_ip" '$1==current_ip {print $2; exit}' "$gameListFile" | tr -d '[]' | tr ',' ' ')"
   for i in "${!line[@]}";do
     if [ "$server_num" -eq "${line[$i]}" ];then
       echo "$i"
@@ -70,9 +70,8 @@ game_port=$((game_port_start + index * 1000))
 
 read -r -p "当前配置：IP=$current_ip | 端口=$game_port | 编号=$server_num. 输入任意值继续任务"
 
-tmp_file="${gameVars}/main.yml.${server_num}" # 生成临时配置文件
 export current_ip game_port server_num group_id
-envsubst < "${gameVars}/main.yml.tmp" > "$tmp_file" || error_exit "配置文件生成失败" 9
+envsubst < "${gameVars}/main.yml.tmp" > "${gameVars}/main.yml" || error_exit "配置文件生成失败" 9
 
 if ! ansible-playbook -i "${current_ip}," -e "host_name=${current_ip}" -e "role_name=game" "${playbookFile}"; then
     error_exit "Ansible任务失败，任务名：game，server_num编号: $server_num" 14
@@ -80,4 +79,4 @@ else
     echo "Ansible任务成功，任务名：game，server_num编号: $server_num"
 fi
 
-rm -f "$tmp_file"
+rm -f "${gameVars}/main.yml"

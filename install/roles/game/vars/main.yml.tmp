@@ -13,7 +13,7 @@ discovers:
 game_db:
   db_host: 192.168.121.101
   db_user: root
-  db_password: 123456
+  db_password: root
   db_name: cbt4_game_${server_num}
 group_id: ${group_id}
 area_id: ${server_num}

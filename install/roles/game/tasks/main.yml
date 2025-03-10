@@ -19,8 +19,6 @@
   unarchive:
     src: /data/update/install.zip
     dest: /data/server{{ area_id }}/game/
-    mode: '0644'
-    directory_mode: '0755'
     remote_src: yes
 
 - name: 1-5 复制server.log.ini、server.lua、services.lua、groups.lua文件
@@ -34,10 +32,10 @@
     - "etc/services.lua"
     - "etc/groups.lua"
 
-#- name: 1-6 修改权限
-#  shell: |
-#    find /data/server{{ area_id }} -type f -exec chmod 644 {} \;
-#    find /data/server{{ area_id }} -type d -exec chmod 755 {} \;
+- name: 1-6 修改权限
+  shell: |
+    find /data/server{{ area_id }} -type f -exec chmod 644 {} \;
+    find /data/server{{ area_id }} -type d -exec chmod 755 {} \;
 
 - name: 1-7 复制 server.app.lua.j2 和 zones.lua.j2
   template:
@@ -55,17 +53,17 @@
     - /data/server{{ area_id }}/game/p8_app_server
     - /data/server{{ area_id }}/game/server.sh
 
-- name: 1-9 执行 /data/server{{ area_id }}/game/server.sh start
-  shell: "./server.sh start && sleep 3"
-  args:
-    chdir: /data/server{{ area_id }}/game/
-
-- name: 1-10 检测进程状态
-  shell: "pgrep -f /data/server{{ area_id }}/game/p8_app_server"
-  register: start_stat
-  ignore_errors: yes
-
-- name: 1-11 如果检测不到进程，退出剧本
-  fail:
-    msg: "服务启动失败，已尝试启动但无进程"
-  when: start_stat.rc != 0
+#- name: 1-9 执行 /data/server{{ area_id }}/game/server.sh start
+#  shell: "./server.sh start && sleep 3"
+#  args:
+#    chdir: /data/server{{ area_id }}/game/
+#
+#- name: 1-10 检测进程状态
+#  shell: "pgrep -f /data/server{{ area_id }}/game/p8_app_server"
+#  register: start_stat
+#  ignore_errors: yes
+#
+#- name: 1-11 如果检测不到进程，退出剧本
+#  fail:
+#    msg: "服务启动失败，已尝试启动但无进程"
+#  when: start_stat.rc != 0

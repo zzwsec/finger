@@ -9,7 +9,6 @@
       copy:
         src: "{{ playbook_dir }}/../../file/increment.zip"
         dest: /data/update/increment.zip
-      tags: increment
 
     - name: 删除原本的 app 目录
       file:
@@ -21,8 +20,6 @@
         src: /data/update/increment.zip
         dest: /data/update/
         remote_src: yes
-        mode: '0644'
-        directory_mode: '0755'
 
     - name: 动态处理 gm 实例
       include_tasks: gm.yaml
