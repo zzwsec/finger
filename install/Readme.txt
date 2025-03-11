@@ -21,4 +21,4 @@ step4:
     
 step5:
     name: 启动
-    tips: bash game.sh 服务编号
+    tips: bash game.sh 服务编号 [是否启动，默认不启动，如果要启动则传入 start]
