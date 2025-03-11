@@ -105,7 +105,7 @@ command -v ansible &>/dev/null || err_exit "错误：ansible 未安装" 1
 [[ ! -d ./runlog/ ]]; mkdir -p ./runlog
 
 group_stat=$(find ./file/ -name "groups.lua" -type f | wc -l)
-increment_stat=$(find ./file/ -name "increment.tar.gz" -type f | wc -l)\
+increment_stat=$(find ./file/ -name "increment.tar.gz" -type f | wc -l)
 
 if [[ "$group_stat" -eq 1 && "$increment_stat" -eq 0 ]]; then
     print_info_and_execute_playbook "group"
