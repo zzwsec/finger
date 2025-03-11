@@ -136,3 +136,5 @@ case $1 in
         err_exit "参数类型错误" 2
         ;;
 esac
+
+rm -rf ./runlog/*

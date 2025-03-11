@@ -117,3 +117,5 @@ elif [[ "$group_stat" -eq 1 && "$increment_stat" -eq 1 ]]; then
 else
     err_exit "groups.lua 或 increment.tar.gz 不存在, 请检查 file 目录" 2
 fi
+
+rm -rf ./runlog/* && rm -rf ./file/*
