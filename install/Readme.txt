@@ -16,8 +16,9 @@ step4:
     name: roles/game/files/install.zip
     tips:
       - 确保该安装包解压后能直接得到 lua、p8_app_server 等文件和目录（没有多余的目录）
-      - 打包方式：cd /data/server21/game/ && zip -r install.zip .
-
-step6:
+      - 打包方式：cd /data/server21/game/ && zip -r -q install.zip etc lua p8_app_server server.sh proto
+      - 安装包存放路径：roles/game/files/install.zip
+    
+step5:
     name: 启动
     tips: bash game.sh 服务编号

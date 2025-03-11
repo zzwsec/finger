@@ -1,0 +1,19 @@
+services:
+  open:
+    image: registry.cn-chengdu.aliyuncs.com/zzwsec/open:v0.2
+    container_name: open
+    volumes:
+      - ./game_list.txt:/open/game_list.txt
+      - ./login_list.txt:/open/login_list.txt
+      - ./init.txt:/open/init.txt
+      - /root/.ssh/:/root/.ssh/:ro
+    environment:
+      - dbHost=192.168.121.101
+      - dbPort=3306
+      - dbUser=root
+      - dbPassword=root
+      - dbName=cbt4_log
+      - criticalRegisterCount=2000  # 注册人数临界值
+      - criticalRechargeCount=100  # 充值人数临界值
+      - sleepInterval=10  # 开放白单与限制创建之间的时间间隔。单位：分
+    network_mode: bridge

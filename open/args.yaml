@@ -1,5 +1,0 @@
-dbHost: "192.168.121.103"
-dbPort: "3306"
-dbUser: "root"
-dbPassword: "root"
-dbName: "cbt4_log"

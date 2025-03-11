@@ -5,8 +5,8 @@
       register: login_list
       changed_when: false
 
-    - name: 动态处理 login 实例
-      include_tasks: login.yaml
+    - name: 重启每个 login 实例
+      shell: "./server.sh reload && sleep 3"
+      args:
+        chdir: /data/server/{{ login_item }}/
       loop: "{{ login_list.stdout_lines }}"
-      loop_control:
-        loop_var: login_item
