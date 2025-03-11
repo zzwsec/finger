@@ -78,11 +78,11 @@ update_option() {
 
     if [ "$task_status" -ne 0 ]; then
         printf "  ${red}更新 %s for %s node [失败], 执行过程见 %s${white}\n" "$file_name" "$node_name" "$log_file"
-        _err_msg "更新 ${node_name} 节点的 ${file_name} 失败（退出码: $task_status）"
+        # _err_msg "更新 ${node_name} 节点的 ${file_name} 失败（退出码: $task_status）"
         exit 1
     else
         printf "  ${green}更新 %s for %s node [完成]${white}\n" "$file_name" "$node_name"
-        _suc_msg "成功更新 ${node_name} 节点的 ${file_name}"
+        # _suc_msg "成功更新 ${node_name} 节点的 ${file_name}"
     fi
 }
 

@@ -1,0 +1,18 @@
+- hosts: login
+  tasks:
+    - name: 检查 login 目录
+      shell: "find /data/server/ -maxdepth 1 -type d -name 'login*' -printf '%f\n'"
+      register: login_list
+      changed_when: false
+      tags:
+        - stop
+        - start
+
+    - name: 动态处理 login 实例
+      include_tasks: login.yaml
+      loop: "{{ login_list.stdout_lines }}"
+      loop_control:
+        loop_var: login_item
+      tags:
+        - stop
+        - start

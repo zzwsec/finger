@@ -1,0 +1,18 @@
+- hosts: zk
+  tasks:
+    - name: 检查 zk 目录
+      shell: "find /data/center/ -maxdepth 1 -type d -name 'zk*' -printf '%f\n'"
+      register: zk_list
+      changed_when: false
+      tags:
+        - stop
+        - start
+
+    - name: 动态处理 zk 实例
+      include_tasks: zk.yaml
+      loop: "{{ zk_list.stdout_lines }}"
+      loop_control:
+        loop_var: zk_item
+      tags:
+        - stop
+        - start

@@ -1,0 +1,18 @@
+- hosts: log
+  tasks:
+    - name: 检查 log 目录
+      shell: "find /data/ -maxdepth 1 -type d -name 'logserver[0-9]*' -printf '%f\n'"
+      register: log_list
+      changed_when: false
+      tags:
+        - stop
+        - start
+
+    - name: 动态处理 log 实例
+      include_tasks: log.yaml
+      loop: "{{ log_list.stdout_lines }}"
+      loop_control:
+        loop_var: log_item
+      tags:
+        - stop
+        - start

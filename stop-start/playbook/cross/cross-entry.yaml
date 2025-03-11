@@ -1,0 +1,18 @@
+- hosts: cross
+  tasks:
+    - name: 检查 cross 目录
+      shell: "find /data/ -maxdepth 1 -type d -name 'crossserver[0-9]*' -printf '%f\n'"
+      register: cross_list
+      changed_when: false
+      tags:
+        - stop
+        - start
+
+    - name: 动态处理 cross 实例
+      include_tasks: cross.yaml
+      loop: "{{ cross_list.stdout_lines }}"
+      loop_control:
+        loop_var: cross_item
+      tags:
+        - stop
+        - start
