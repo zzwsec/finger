@@ -2,9 +2,7 @@
   copy:
     src: /data/update/app/
     dest: /data/{{ gm_item }}/
-    mode: '0644'
     remote_src: yes
-    directory_mode: '0755'
 
 - name: 过滤 {{ gm_item }} 进程
   shell: pgrep -af '/data/{{ gm_item }}/p8_app_server'

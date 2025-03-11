@@ -7,8 +7,8 @@
 
     - name: 分发更新压缩包
       copy:
-        src: "{{ playbook_dir }}/../../file/increment.zip"
-        dest: /data/update/increment.zip
+        src: "{{ playbook_dir }}/../../file/increment.tar.gz"
+        dest: /data/update/increment.tar.gz
 
     - name: 删除原本的 app 目录
       file:
@@ -17,7 +17,7 @@
 
     - name: 执行解压
       unarchive:
-        src: /data/update/increment.zip
+        src: /data/update/increment.tar.gz
         dest: /data/update/
         remote_src: yes
 

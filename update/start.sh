@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# time: 2025/3/9
+# time: 2025/3/11
 
 set -o nounset
 
@@ -38,7 +38,7 @@ print_info_and_execute_playbook() {
         read -r
         update_group_lua
     elif [ "$option" = "increment" ]; then
-        _info_msg "检测到 increment.zip 执行更新操作, 按任意键继续..."
+        _info_msg "检测到 increment.tar.gz 执行更新操作, 按任意键继续..."
         read -r
         update_increment
     else
@@ -92,10 +92,10 @@ update_group_lua() {
 }
 
 update_increment() {
-    update_option "increment.zip" "cross" "playbook/cross/cross-entry.yaml" "increment"
-    update_option "increment.zip" "game" "playbook/game/game-entry.yaml" "increment"
-    update_option "increment.zip" "gm" "playbook/gm/gm-entry.yaml" ""
-    update_option "increment.zip" "log" "playbook/log/log-entry.yaml" ""
+    update_option "increment.tar.gz" "cross" "playbook/cross/cross-entry.yaml" "increment"
+    update_option "increment.tar.gz" "game" "playbook/game/game-entry.yaml" "increment"
+    update_option "increment.tar.gz" "gm" "playbook/gm/gm-entry.yaml" ""
+    update_option "increment.tar.gz" "log" "playbook/log/log-entry.yaml" ""
 }
 
 [[ ! -d ./file/ ]] && err_exit "错误：目录 ./file/ 不存在" 1
@@ -105,15 +105,15 @@ command -v ansible &>/dev/null || err_exit "错误：ansible 未安装" 1
 [[ ! -d ./runlog/ ]]; mkdir -p ./runlog
 
 group_stat=$(find ./file/ -name "groups.lua" -type f | wc -l)
-increment_stat=$(find ./file/ -name "increment.zip" -type f | wc -l)\
+increment_stat=$(find ./file/ -name "increment.tar.gz" -type f | wc -l)\
 
 if [[ "$group_stat" -eq 1 && "$increment_stat" -eq 0 ]]; then
     print_info_and_execute_playbook "group"
 elif [[ "$group_stat" -eq 0 && "$increment_stat" -eq 1 ]]; then
-    unzip -l ./file/increment.zip | grep -q "app/" || err_exit "increment.zip 未包含 app 目录" 2
+    tar tf ./file/increment.tar.gz | sed -n '1p' |grep -q "app/" || err_exit "increment.tar.gz 未包含 app 目录" 2
     print_info_and_execute_playbook "increment"
 elif [[ "$group_stat" -eq 1 && "$increment_stat" -eq 1 ]]; then
-    err_exit "groups.lua 和 increment.zip 同时存在, 请删除或移动其中一个" 2
+    err_exit "groups.lua 和 increment.tar.gz 同时存在, 请删除或移动其中一个" 2
 else
-    err_exit "groups.lua 或 increment.zip 不存在, 请检查 file 目录" 2
+    err_exit "groups.lua 或 increment.tar.gz 不存在, 请检查 file 目录" 2
 fi
