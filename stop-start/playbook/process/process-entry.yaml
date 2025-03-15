@@ -14,6 +14,6 @@
         - stop
 
     - name: 启动 process
-      shell: "nohup /data/tool/processcontrol-allserver.sh > /dev/null 2>&1 &"
+      shell: "nohup bash /data/tool/processcontrol-allserver.sh > /dev/null 2>&1 &"
       tags:
         - start
