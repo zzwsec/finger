@@ -19,10 +19,3 @@
     chdir: "/data/center/{{ zk_item }}/"
   tags:
     - start
-
-- name: 睡 1 秒
-  pause:
-    seconds: 1
-  tags:
-    - stop
-    - start
