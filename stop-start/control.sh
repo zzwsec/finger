@@ -108,11 +108,9 @@ update_option() {
 
     if [ "$task_status" -ne 0 ]; then
         printf "  ${red}${flag}-->%s node [失败], 执行过程见 %s${white}\n" "$node_name" "$log_file"
-        # _err_msg "${flag}-->${node_name} 节点失败（退出码: $task_status）"
         exit 1
     else
         printf "  ${green}${flag}-->%s node [完成]${white}\n" "$node_name"
-        # _suc_msg "成功: ${flag}-->${node_name} 节点"
     fi
 }
 
