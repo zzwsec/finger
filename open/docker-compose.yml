@@ -8,6 +8,8 @@ services:
       - ./init.txt:/open/init.txt
       - /root/.ssh/:/root/.ssh/:ro
     environment:
+      - cdnURL=http://10.46.98.60:20011/openserver/
+      - loginListFilePath=/data/server/login/etc  # white 和 limit 文件存放目录，不是 login 实例的目录
       - dbHost=192.168.121.101
       - dbPort=3306
       - dbUser=root
@@ -15,5 +17,6 @@ services:
       - dbName=cbt4_log
       - criticalRegisterCount=2000  # 注册人数临界值
       - criticalRechargeCount=100  # 充值人数临界值
-      - sleepInterval=10  # 开放白单与限制创建之间的时间间隔。单位：分
+      - criticalMoney=6  # 充值金额临界值
+      - sleepInterval=60  # 开放白单与限制创建之间的时间间隔。单位：秒
     network_mode: bridge

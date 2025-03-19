@@ -11,9 +11,11 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"os/signal"
+	"path"
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
@@ -36,10 +38,10 @@ const (
 	openYamlFileName  = "open.yaml"
 	playbookDir       = "playbook"
 
-	whiteListPath = "/data/server/white-limit/white_list.txt"
+	whiteListName = "white_list.txt"
 
-	registerCountSql = "select count(1) register_num from log_register where zone_id=?"
-	rechargeCountSql = "select count(distinct player_id) as recharge_num from (select player_id, sum(money) as total from log_recharge where zone_id=? group by player_id having total>=6) as subquery"
+	registerCountSql = "select count(1) register_num from log_register where zone_id=?;"
+	rechargeCountSql = "select count(distinct player_id) as recharge_num from (select player_id, sum(money) as total from log_recharge where zone_id=? group by player_id having total>=?) as subquery;"
 )
 
 var (
@@ -50,39 +52,47 @@ var (
 	dbName                string
 	criticalRegisterCount int
 	criticalRechargeCount int
+	criticalMoney         int
 	sleepInterval         int
+	cdnURL                string
+	loginListFilePath     string
 
-	ipMap      = make(map[string][]string)
-	infoLogger *log.Logger
-	errLogger  *log.Logger
-	currentDir string
-	currentNum int
+	ipMap         = make(map[string][]string)
+	loginSlice    = make([]string, 0)
+	infoLogger    *log.Logger
+	successLogger *log.Logger
+	errLogger     *log.Logger
+	warnLogger    *log.Logger
+	currentDir    string
+	currentNum    int
 )
 
 func main() {
 	defer func() {
 		if err := recover(); err != nil {
 			stack := debug.Stack()
-			errLogger.Printf("[ERROR] Panic occurred: %v\nStack: %s", err, stack)
+			errLogger.Printf("Panic occurred: %v\nStack: %s", err, stack)
 			SendMessage(fmt.Sprintf("Panic occurred: %v", err))
 			os.Exit(1)
 		}
 	}()
 
 	// 初始化日志
-	infoLogger = log.New(os.Stdout, "", log.Ldate|log.Ltime|log.Lshortfile)
-	errLogger = log.New(os.Stderr, "", log.Ldate|log.Ltime|log.Lshortfile)
+	infoLogger = log.New(os.Stdout, "[INFO] ", log.Ldate|log.Ltime|log.Lshortfile)
+	successLogger = log.New(os.Stdout, "[SUCCESS] ", log.Ldate|log.Ltime|log.Lshortfile)
+	warnLogger = log.New(os.Stderr, "[WARNING] ", log.Ldate|log.Ltime|log.Lshortfile)
+	errLogger = log.New(os.Stderr, "[ERROR] ", log.Ldate|log.Ltime|log.Lshortfile)
 
 	currentDir = getCurrentDir()
 
-	validateGameList()    // 验证 game_list.txt 文件
-	validateLoginList()   // 验证 login_list.txt 文件
-	loadIpMap()           // 配置 map
-	getCurrentServerNum() // 获取当前服务编号
+	validateGameList() // 验证 game_list.txt 文件有效性
+	loadIpMap()
+	loadLoginSlice()
+	getCurrentServerNum() // 获取当前game 编号为:
 
 	// 加载配置
 	if err := loadEnv(); err != nil {
-		errLogger.Fatalf("[ERROR] 环境变量解析失败: %v", err)
+		errLogger.Fatalf("环境变量解析失败: %v", err)
 	}
 
 	// 信号处理
@@ -93,7 +103,7 @@ func main() {
 	// 数据库连接
 	db, err := initDB()
 	if err != nil {
-		errLogger.Fatalf("[ERROR] 数据库初始化失败: %v", err)
+		errLogger.Fatalf("数据库初始化失败: %v", err)
 	}
 	defer db.Close()
 	mainLoop(db)
@@ -102,47 +112,47 @@ func main() {
 func mainLoop(db *sql.DB) {
 	for {
 		if err := db.Ping(); err != nil {
-			errLogger.Printf("[ERROR] 数据库连接失效，尝试重连")
+			warnLogger.Printf("数据库连接失效, 尝试重连")
 			db, err = initDB()
 			if err != nil {
-				errLogger.Printf("[ERROR] 数据库重连失败: %v", err)
-				time.Sleep(time.Duration(sleepInterval) * time.Second)
+				warnLogger.Printf("数据库重连失败: %v", err)
+				time.Sleep(time.Duration(1) * time.Minute)
 				continue
 			}
-			infoLogger.Printf("[INFO] 数据库重连成功")
+			infoLogger.Printf("数据库重连成功")
 		}
 
-		registerCount, err := queryCount(db, currentNum, registerCountSql)
+		registerCount, err := queryCount(db, registerCountSql, currentNum)
 		if err != nil {
-			errLogger.Printf("[ERROR] 查询注册人数失败: %v", err)
+			warnLogger.Printf("查询注册人数失败: %v", err)
 			time.Sleep(time.Duration(sleepInterval) * time.Second)
 			continue
 		}
-		infoLogger.Printf("[INFO] 当前注册人数 %d，服务编号 %d", registerCount, currentNum)
+		infoLogger.Printf("当前注册人数 %d / %d，game 编号为:  %d", registerCount, criticalRegisterCount, currentNum)
 
 		nextNum := currentNum + 1
 		if registerCount >= criticalRegisterCount {
 			if handleServerSwitch(currentNum, nextNum) {
 				updateServerNum(nextNum)
 			} else {
-				errLogger.Printf("[ERROR] 服务编号 %d 开服失败", nextNum)
+				errLogger.Panicf("game 编号为:  %d 开服失败", nextNum)
 			}
 			continue
 		}
 
-		rechargeCount, err := queryCount(db, currentNum, rechargeCountSql)
+		rechargeCount, err := queryCount(db, rechargeCountSql, currentNum, criticalMoney)
 		if err != nil {
-			errLogger.Printf("[ERROR] 查询付费人数失败: %v", err)
-			time.Sleep(time.Duration(sleepInterval) * time.Second)
+			warnLogger.Printf("查询付费人数失败: %v", err)
+			time.Sleep(time.Duration(60) * time.Second)
 			continue
 		}
-		infoLogger.Printf("[INFO] 当前付费人数 %d，服务编号 %d", rechargeCount, currentNum)
+		infoLogger.Printf("当前付费人数 %d / %d, 付费临界值: %d, game 编号为: %d", rechargeCount, criticalRechargeCount, criticalMoney, currentNum)
 
 		if rechargeCount >= criticalRechargeCount {
 			if handleServerSwitch(currentNum, nextNum) {
 				updateServerNum(nextNum)
 			} else {
-				errLogger.Printf("[ERROR] 服务编号 %d 开服失败", nextNum)
+				errLogger.Panicf("game 编号为: %d 开服失败", nextNum)
 			}
 			continue
 		}
@@ -154,14 +164,14 @@ func mainLoop(db *sql.DB) {
 func getCurrentDir() string {
 	pwd, err := os.Getwd()
 	if err != nil {
-		errLogger.Fatalf("[ERROR]: 获取当前目录失败: %v", err)
+		errLogger.Fatalf("获取当前目录失败: %v", err)
 	}
 	return pwd
 }
 
 func handleSignals(ch <-chan os.Signal) {
 	sig := <-ch
-	infoLogger.Printf("[INFO] 收到信号: %v，执行清理", sig)
+	successLogger.Printf("收到信号: %v，执行清理", sig)
 	SendMessage("用户手动退出")
 	os.Exit(0)
 }
@@ -179,6 +189,7 @@ func handleServerSwitch(oldNum, newNum int) bool {
 		{"清理日志", cleanLogs, newNum},
 		{"开服时间", updateOpenTime, newNum},
 		{"白名单更新", updateWhitelist, newNum},
+		{"CDN刷新", flushCDN, newNum},
 		{"休眠间隔", updateSleepTime, sleepInterval},
 		{"限制名单", updateLimit, oldNum},
 	}
@@ -196,30 +207,32 @@ func executeWithRetry(opName string, fn func(int) error, arg int) bool {
 	var lastErr error
 
 	for attempt := 1; attempt <= maxRetries; attempt++ {
-		infoLogger.Printf("[INFO] 执行 %s (尝试 %d/%d)", opName, attempt, maxRetries)
+		infoLogger.Printf("执行 %s (尝试 %d/%d)", opName, attempt, maxRetries)
 
 		if err := fn(arg); err != nil {
 			lastErr = err
-			errLogger.Printf("[WARNING] %s 尝试 %d 失败: %v", opName, attempt, err)
+			warnLogger.Printf("%s 尝试 %d 失败: %v", opName, attempt, err)
 
 			// 等待
 			if attempt < maxRetries {
-				errLogger.Printf("[WARNING] %s 等待 %v 后重试...", opName, time.Duration(attempt*attempt)*time.Second)
+				warnLogger.Printf("%s 等待 %v 后重试...", opName, time.Duration(attempt*attempt)*time.Second)
 				time.Sleep(time.Duration(attempt*attempt) * time.Second)
 			}
 			continue
 		}
 
-		infoLogger.Printf("[SUCCESS] %s 成功", opName)
+		successLogger.Printf("任务 %s 成功", opName)
 		return true
 	}
 
-	errLogger.Printf("[ERROR] %s 失败 (共尝试 %d 次)，最后错误: %v", opName, maxRetries, lastErr)
+	errLogger.Printf("任务 %s 失败 (共尝试 %d 次)，最后错误: %v", opName, maxRetries, lastErr)
 	return false
 }
 
 func loadEnv() error {
 	var err error
+	cdnURL = os.Getenv("cdnURL")
+	loginListFilePath = os.Getenv("loginListFilePath")
 	dbHost = os.Getenv("dbHost")
 	dbPort = os.Getenv("dbPort")
 	dbUser = os.Getenv("dbUser")
@@ -244,6 +257,10 @@ func loadEnv() error {
 	if err != nil || criticalRechargeCount <= 0 {
 		return errors.New("付费人数临界值无效")
 	}
+	criticalMoney, err = strconv.Atoi(os.Getenv("criticalMoney"))
+	if err != nil || criticalMoney <= 0 {
+		return errors.New("付费金额临界值无效")
+	}
 	sleepInterval, err = strconv.Atoi(os.Getenv("sleepInterval"))
 	if err != nil || sleepInterval < 0 {
 		return errors.New("休眠间隔无效")
@@ -261,7 +278,7 @@ func initDB() (*sql.DB, error) {
 	for i := 0; i < maxRetries; i++ {
 		db, err = sql.Open("mysql", dsn)
 		if err != nil {
-			errLogger.Printf("[WARNING] 尝试 %d: 创建数据库对象失败: %v", i+1, err)
+			warnLogger.Printf("尝试 %d: 创建数据库对象失败: %v", i+1, err)
 			time.Sleep(retryDelay)
 			retryDelay *= 2
 			continue
@@ -269,7 +286,7 @@ func initDB() (*sql.DB, error) {
 		if err = db.Ping(); err == nil {
 			break
 		}
-		errLogger.Printf("[WARNING] 尝试 %d: 数据库连接失败: %v", i+1, err)
+		warnLogger.Printf("尝试 %d: 数据库连接失败: %v", i+1, err)
 		if db != nil {
 			db.Close()
 		}
@@ -284,16 +301,17 @@ func initDB() (*sql.DB, error) {
 	db.SetMaxOpenConns(5)
 	db.SetMaxIdleConns(5)
 	db.SetConnMaxLifetime(time.Hour)
-	infoLogger.Println("[SUCCESS] 数据库连接成功")
+	successLogger.Println("数据库连接成功")
 	return db, nil
 }
 
 // #########################################动作############################################
 func updateServerNum(num int) {
 	if err := os.WriteFile(filepath.Join(currentDir, initFileName), []byte(strconv.Itoa(num)+"\n"), 0644); err != nil {
-		errLogger.Fatalf("[ERROR] 更新服务编号失败: %v", err)
+		errLogger.Panicf("更新 init.txt 文件中game 编号为: 失败: %v", err)
 	} else {
-		infoLogger.Printf("[SUCCESS] 已更新服务编号至 %d", num)
+		currentNum = num
+		successLogger.Printf("已更新game 编号为: 至 %d", num)
 	}
 }
 
@@ -303,49 +321,47 @@ func cleanLogs(num int) error {
 		return err
 	}
 
-	infoLogger.Printf("[INFO] 正在清理日志 服务:%d IP:%s", num, ip)
+	infoLogger.Printf("正在清理日志 服务:%d IP:%s", num, ip)
 	cmd := exec.Command("ansible", "-i", ip+",", "all",
 		"-m", "shell",
-		"-a", fmt.Sprintf("rm -rfv /data/server%d/game/log/*", num))
+		"-a", fmt.Sprintf("path=/data/server%d/game/log/ state=absent recurse=yes", num))
 
 	output, err := cmd.CombinedOutput()
-	infoLogger.Printf("[INFO] Ansible输出:\n%s", output)
+	infoLogger.Printf("ansible输出:\n%s", output)
 	if err != nil {
-		return fmt.Errorf("命令执行失败: %w", err)
+		return fmt.Errorf("ansible 命令执行失败: %v, 输出: %s", err, string(output))
 	}
 	return nil
 }
 
 func updateSleepTime(i int) error {
-	time.Sleep(time.Duration(i) * time.Minute)
+	time.Sleep(time.Duration(i) * time.Second)
 	return nil
 }
 
 func updateWhitelist(num int) error {
-	loginIP, err := getLoginIP(num)
-	if err != nil {
-		return fmt.Errorf("获取登录IP失败: %w", err)
-	}
-	infoLogger.Printf("[INFO] 正在更新白名单 服务编号为:%d 当前IP为:%s", num, loginIP)
-	cmd := exec.Command("ansible", "-i", fmt.Sprintf("%s,", loginIP),
-		"all",
-		"-m", "shell",
-		"-a", fmt.Sprintf("sed -i -e '/^%d$/d' -e '/^$/d' %s", num, whiteListPath))
-	output, err := cmd.CombinedOutput()
-	infoLogger.Printf("[INFO] Ansible输出:\n%s", output)
-	if err != nil {
-		return fmt.Errorf("命令执行失败: %w", err)
-	}
+	for _, loginIP := range loginSlice {
+		infoLogger.Printf("正在更新白名单 game 编号为: 为:%d 当前IP为:%s", num, loginIP)
+		cmd := exec.Command("ansible", "-i", fmt.Sprintf("%s,", loginIP),
+			"all",
+			"-m", "shell",
+			"-a", fmt.Sprintf("sed -i -e '/^%d$/d' -e '/^$/d' %s", num, path.Join(loginListFilePath, whiteListName)))
+		output, err := cmd.CombinedOutput()
+		infoLogger.Printf("ansible输出:\n%s\n", output)
+		if err != nil {
+			return fmt.Errorf("ansible 命令执行失败: %v", err)
+		}
 
-	infoLogger.Printf("[INFO] 正在reload login 当前IP为:%s", loginIP)
-	cmd = exec.Command("ansible-playbook",
-		"-i", fmt.Sprintf("%s,", loginIP),
-		"-e", fmt.Sprintf("host_name=%s,", loginIP),
-		filepath.Join(currentDir, playbookDir, loginYamlFileName))
-	output, err = cmd.CombinedOutput()
-	infoLogger.Printf("[INFO] Ansible输出:\n%s", output)
-	if err != nil {
-		return fmt.Errorf("命令执行失败: %w", err)
+		infoLogger.Printf("正在reload login 当前IP为:%s", loginIP)
+		cmd = exec.Command("ansible-playbook",
+			"-i", fmt.Sprintf("%s,", loginIP),
+			"-e", fmt.Sprintf("host_name=%s,", loginIP),
+			filepath.Join(currentDir, playbookDir, loginYamlFileName))
+		output, err = cmd.CombinedOutput()
+		infoLogger.Printf("ansible输出:\n%s", output)
+		if err != nil {
+			return fmt.Errorf("ansible 命令执行失败: %v", err)
+		}
 	}
 	return nil
 }
@@ -356,45 +372,45 @@ func updateOpenTime(num int) error {
 		return err
 	}
 
-	infoLogger.Printf("[INFO] 正在设置开服时间 服务编号为:%d 当前IP为:%s", num, ip)
+	infoLogger.Printf("正在设置开服时间 game 编号为: 为:%d 当前IP为:%s", num, ip)
 	cmd := exec.Command("ansible-playbook", "-i", ip+",",
 		"-e", "host_name="+ip,
 		"-e", "svc_num="+strconv.Itoa(num),
 		filepath.Join(currentDir, playbookDir, openYamlFileName))
 
 	output, err := cmd.CombinedOutput()
-	infoLogger.Printf("[INFO] Ansible输出:\n%s", output)
+	infoLogger.Printf("ansible输出:\n%s", output)
 	if err != nil {
-		return fmt.Errorf("命令执行失败: %w", err)
+		return fmt.Errorf("ansible 命令执行失败: %v", err)
 	}
 	return nil
 }
 
 func updateLimit(num int) error {
-	loginIP, err := getLoginIP(num)
-	if err != nil {
-		return fmt.Errorf("获取登录IP失败: %w", err)
-	}
-	infoLogger.Printf("[INFO] 正在更新限制名单 服务:%d IP:%s", num, loginIP)
-	cmd := exec.Command("ansible-playbook", "-i", fmt.Sprintf("%s,", loginIP),
-		"-e", fmt.Sprintf("host_name=%s,", loginIP),
-		"-e", fmt.Sprintf("svc_num=%d", num),
-		filepath.Join(currentDir, playbookDir, limitYamlFileName))
+	for _, loginIP := range loginSlice {
 
-	output, err := cmd.CombinedOutput()
-	infoLogger.Printf("[INFO] Ansible输出:\n%s", output)
-	if err != nil {
-		return fmt.Errorf("命令执行失败: %w", err)
-	}
-	infoLogger.Printf("[INFO] 正在reload login 当前IP为:%s", loginIP)
-	cmd = exec.Command("ansible-playbook",
-		"-i", fmt.Sprintf("%s,", loginIP),
-		"-e", fmt.Sprintf("host_name=%s,", loginIP),
-		filepath.Join(currentDir, playbookDir, loginYamlFileName))
-	output, err = cmd.CombinedOutput()
-	infoLogger.Printf("[INFO] Ansible输出:\n%s", output)
-	if err != nil {
-		return fmt.Errorf("命令执行失败: %w", err)
+		infoLogger.Printf("正在更新限制名单 服务:%d IP:%s", num, loginIP)
+		cmd := exec.Command("ansible-playbook", "-i", fmt.Sprintf("%s,", loginIP),
+			"-e", fmt.Sprintf("host_name=%s,", loginIP),
+			"-e", fmt.Sprintf("svc_num=%d", num),
+			"-e", fmt.Sprintf("list_path=%s", loginListFilePath),
+			filepath.Join(currentDir, playbookDir, limitYamlFileName))
+
+		output, err := cmd.CombinedOutput()
+		infoLogger.Printf("ansible输出:\n%s", output)
+		if err != nil {
+			return fmt.Errorf("ansible 命令执行失败: %v, 输出: %s", err, string(output))
+		}
+		infoLogger.Printf("正在reload login 当前IP为:%s", loginIP)
+		cmd = exec.Command("ansible-playbook",
+			"-i", fmt.Sprintf("%s,", loginIP),
+			"-e", fmt.Sprintf("host_name=%s,", loginIP),
+			filepath.Join(currentDir, playbookDir, loginYamlFileName))
+		output, err = cmd.CombinedOutput()
+		infoLogger.Printf("ansible输出:\n%s", output)
+		if err != nil {
+			return fmt.Errorf("ansible 命令执行失败: %v, 输出: %s", err, string(output))
+		}
 	}
 	return nil
 }
@@ -467,14 +483,14 @@ func getOSInfo() string {
 func sendLogRequest(data LogRequest) {
 	jsonData, _ := json.Marshal(data)
 	http.Post(
-		"https://api.honeok.com/api/log",
+		"https://api.611611.best/api/log",
 		"application/json",
 		bytes.NewBuffer(jsonData),
 	)
 }
 
 // ##########################获取##################################
-// 通过服务编号获取ip
+// 通过game 编号为: 获取ip
 func getServerIP(num int) (string, error) {
 	for ip, nums := range ipMap {
 		for _, n := range nums {
@@ -483,21 +499,20 @@ func getServerIP(num int) (string, error) {
 			}
 		}
 	}
-	return "", fmt.Errorf("未找到服务编号 %d 对应的IP", num)
+	return "", fmt.Errorf("未找到game 编号为:  %d 对应的IP", num)
 }
 
 func loadIpMap() {
 	file, err := os.Open(filepath.Join(currentDir, gameListFileName))
 	if err != nil {
-		errLogger.Fatalf("[ERROR] 无法打开列表文件: %v", err)
+		errLogger.Fatalf("无法打开列表文件: %v", err)
 	}
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := scanner.Text()
-		tmpString := strings.TrimSpace(line)
-		if tmpString == "" {
+		if strings.TrimSpace(line) == "" {
 			continue
 		}
 		parts := strings.Fields(line)
@@ -507,15 +522,15 @@ func loadIpMap() {
 		ipMap[ip] = numbers
 	}
 
-	if err := scanner.Err(); err != nil {
-		errLogger.Fatalf("[ERROR] 文件读取错误: %v", err)
+	if err = scanner.Err(); err != nil {
+		errLogger.Fatalf("文件读取错误: %v", err)
 	}
 }
 
 func validateGameList() {
 	file, err := os.Open(filepath.Join(currentDir, gameListFileName))
 	if err != nil {
-		errLogger.Fatalf("[ERROR] 无法打开 game 列表文件: %v", err)
+		errLogger.Fatalf("无法打开 game 列表文件: %v", err)
 	}
 	defer file.Close()
 
@@ -533,64 +548,59 @@ func validateGameList() {
 
 		parts := strings.Fields(line)
 		if net.ParseIP(parts[0]) == nil {
-			errLogger.Fatalf("[ERROR] 第%d行包含无效IP: %s", lineNum, parts[0])
+			errLogger.Fatalf("第%d行包含无效IP: %s", lineNum, parts[0])
 		}
 
 		if !strings.HasPrefix(parts[1], "[") || !strings.HasSuffix(parts[1], "]") {
-			errLogger.Fatalf("[ERROR] 第%d行服务编号格式错误", lineNum)
+			errLogger.Fatalf("第%d行game 编号为: 格式错误", lineNum)
 		}
 
 		nums := strings.Split(parts[1][1:len(parts[1])-1], ",")
 		for _, n := range nums {
-			if _, err := strconv.Atoi(n); err != nil {
-				errLogger.Fatalf("[ERROR] 第%d行服务编号包含无效数字: %s", lineNum, n)
+			if _, err = strconv.Atoi(n); err != nil {
+				errLogger.Fatalf("第%d行game 编号为: 包含无效数字: %s", lineNum, n)
 			}
 		}
 	}
 
-	if err := scanner.Err(); err != nil {
-		errLogger.Fatalf("[ERROR] 文件读取错误: %v", err)
+	if err = scanner.Err(); err != nil {
+		errLogger.Fatalf("文件读取错误: %v", err)
 	}
 }
-
-func validateLoginList() {
-	loginListPath := filepath.Join(currentDir, loginListFileName)
-	file, err := os.Open(loginListPath)
+func loadLoginSlice() {
+	file, err := os.Open(filepath.Join(currentDir, loginListFileName))
 	if err != nil {
-		errLogger.Fatalf("[ERROR] 无法打开 login_list.txt 文件: %v", err)
+		errLogger.Fatalf("无法打开 login_list.txt 列表文件: %v", err)
 	}
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
-	loginValues := make(map[string]bool)
-
+	lineNum := 0
 	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
+		lineNum++
+		line := scanner.Text()
+
+		// 跳过空行
+		if strings.TrimSpace(line) == "" {
 			continue
 		}
 
-		fields := strings.Fields(line)
-		if len(fields) < 2 {
-			errLogger.Fatalf("[ERROR] login_list.txt 格式错误: %s", line)
+		parts := strings.Fields(line)
+		if net.ParseIP(parts[0]) == nil {
+			errLogger.Fatalf("第%d行包含无效IP: %s", lineNum, parts[0])
 		}
+		loginSlice = append(loginSlice, parts[0])
+	}
 
-		if net.ParseIP(fields[0]) == nil {
-			errLogger.Fatalf("[ERROR] login_list.txt 包含无效IP: %s", fields[0])
-		}
-
-		loginValue := fields[1]
-		if loginValues[loginValue] {
-			errLogger.Fatalf("[ERROR] 重复的login值: %s", loginValue)
-		}
-		loginValues[loginValue] = true
+	if err = scanner.Err(); err != nil {
+		errLogger.Fatalf("文件读取错误: %v", err)
 	}
 }
 
 func validateNextServer(num int) bool {
 	_, err := getServerIP(num)
 	if err != nil {
-		errLogger.Printf("[ERROR] 无效的下个服务编号 %d: %v", num, err)
+		errLogger.Printf("无效的下个game 编号为:  %d: %v", num, err)
 		return false
 	}
 	return true
@@ -599,96 +609,70 @@ func validateNextServer(num int) bool {
 func getCurrentServerNum() {
 	file, err := os.Open(filepath.Join(currentDir, initFileName))
 	if err != nil {
-		errLogger.Fatalf("[ERROR] 打开init文件失败: %v", err)
+		errLogger.Fatalf("打开 init.txt 文件失败: %v", err)
 	}
 	defer file.Close()
 
 	reader := bufio.NewReader(file)
 	line, err := reader.ReadString('\n')
 	if err != nil && err != io.EOF {
-		errLogger.Fatalf("[ERROR] 读取init文件失败: %v", err)
+		errLogger.Fatalf("读取init文件失败: %v", err)
 	}
 
 	num, err := strconv.Atoi(strings.TrimSpace(line))
 	if err != nil {
-		errLogger.Fatalf("[ERROR] 无效的服务编号: %v", err)
+		errLogger.Fatalf("无效的 game 编号为: %v", err)
 	}
 
 	currentNum = num
 }
 
-func queryCount(db *sql.DB, zoneID int, querySql string) (int, error) {
+func queryCount(db *sql.DB, querySql string, args ...interface{}) (int, error) {
 	var count int
-	err := db.QueryRow(querySql, zoneID).Scan(&count)
+	err := db.QueryRow(querySql, args...).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("数据库查询错误: %v", err)
 	}
 	return count, nil
 }
 
-// 根据服务编号从 login_list.txt 获取 IP
-func getLoginIP(id int) (string, error) {
-	loginPath := filepath.Join(currentDir, loginListFileName)
-	loginFile, err := os.Open(loginPath)
-	if err != nil {
-		return "", fmt.Errorf("[ERROR] 打开 login_list.txt 失败: %w", err)
-	}
-	defer loginFile.Close()
+// ################################## CDN ###########################################
 
-	myid, err := getID(id)
-	if err != nil {
-		errLogger.Fatalf("[ERROR] 未从game_list.txt中找到有效的login映射编号：%v", err)
-	}
-
-	scanner := bufio.NewScanner(loginFile)
-	for lineNum := 1; scanner.Scan(); lineNum++ {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-
-		parts := strings.Fields(line)
-		// 格式校验
-		if len(parts) < 2 {
-			errLogger.Fatalf("[ERROR] login_list 第 %d 行列数不足两列: %s", lineNum, line)
-		}
-
-		if parts[1] == myid {
-			infoLogger.Printf("[INFO] 找到自定义编号 %s 对应 IP: %s", myid, parts[0])
-			return parts[0], nil
-		}
-	}
-
-	return "", fmt.Errorf("[ERROR] 自定义编号 %s 在 login_list.txt 中不存在", myid)
+type RequestData struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
 }
 
-// 根据 game 编号从 game_list.txt 获取对应的第三列 ID
-func getID(num int) (string, error) {
-	gameFile, err := os.Open(filepath.Join(currentDir, gameListFileName))
+func flushCDN(num int) error {
+	params := url.Values{
+		"zone_id": []string{strconv.Itoa(num)},
+	}
+	fullURL := cdnURL + "?" + params.Encode()
+
+	client := &http.Client{Timeout: 5 * time.Second} // 5s 超时
+	resp, err := client.Get(fullURL)
 	if err != nil {
-		return "", fmt.Errorf("[ERROR] 打开 game_list.txt 失败: %w", err)
+		warnLogger.Printf("请求失败: %v", err)
+		return fmt.Errorf("HTTP 请求失败: %w", err)
 	}
-	defer gameFile.Close()
+	defer resp.Body.Close()
 
-	scanner := bufio.NewScanner(gameFile)
-	for lineNum := 1; scanner.Scan(); lineNum++ {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-
-		parts := strings.Fields(line)
-		numList := parts[1]
-
-		// 匹配目标编号
-		nums := strings.Split(numList[1:len(numList)-1], ",")
-		for _, n := range nums {
-			if n == strconv.Itoa(num) {
-				infoLogger.Printf("[INFO] 找到服务编号 %d 对应 ID: %s", num, parts[2])
-				return parts[2], nil // 正确返回 ID
-			}
-		}
+	if resp.StatusCode != http.StatusOK {
+		warnLogger.Printf("状态码非 200: %d", resp.StatusCode)
+		return fmt.Errorf("HTTP 状态码错误: %d", resp.StatusCode)
 	}
 
-	return "", fmt.Errorf("[ERROR] 服务编号 %d 在 game_list.txt 中不存在", num)
+	var reqData RequestData
+	if err = json.NewDecoder(resp.Body).Decode(&reqData); err != nil {
+		warnLogger.Printf("解析响应体失败: %v", err)
+		return fmt.Errorf("JSON 解析失败: %w", err)
+	}
+
+	if reqData.Code != 0 {
+		warnLogger.Printf("返回状态非 0，Message: %s", reqData.Message)
+		return fmt.Errorf("CDN 刷新失败: %s", reqData.Message)
+	}
+
+	successLogger.Printf("CDN 刷新成功，zone_id: %d", num)
+	return nil
 }

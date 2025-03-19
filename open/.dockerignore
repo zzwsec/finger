@@ -7,4 +7,6 @@ go.mod
 go.sum
 main.go
 Dockerfile
-open_list
+game_list.txt
+login_list.txt
+init.txt
