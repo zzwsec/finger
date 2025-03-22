@@ -1,6 +1,6 @@
 services:
   open:
-    image: registry.cn-chengdu.aliyuncs.com/zzwsec/open:v0.2
+    image: registry.cn-chengdu.aliyuncs.com/zzwsec/open:v0.1
     container_name: open
     volumes:
       - ./game_list.txt:/open/game_list.txt
@@ -8,15 +8,37 @@ services:
       - ./init.txt:/open/init.txt
       - /root/.ssh/:/root/.ssh/:ro
     environment:
+      - workMode=auto # auto 或 manual
       - cdnURL=http://10.46.98.60:20011/openserver/
       - loginListFilePath=/data/server/login/etc  # white 和 limit 文件存放目录，不是 login 实例的目录
-      - dbHost=192.168.121.101
-      - dbPort=3306
-      - dbUser=root
-      - dbPassword=root
-      - dbName=cbt4_log
+      - logDBHost=192.168.121.101
+      - logDBPort=3306
+      - logDBUser=root
+      - logDBPassword=root
+      - logDBName=cbt4_log
       - criticalRegisterCount=2000  # 注册人数临界值
       - criticalRechargeCount=100  # 充值人数临界值
       - criticalMoney=6  # 充值金额临界值
       - sleepInterval=60  # 开放白单与限制创建之间的时间间隔。单位：秒
+      - domain=p8
+      - thread=8
+      - payNotifyUrl=http://127.0.0.1:8088/p8/api/callback_kingnet.php
+      - zk1IP=192.168.121.101
+      - zk1Port=2881
+      - zk2IP=192.168.121.102
+      - zk2Port=2882
+      - zk3IP=192.168.121.103
+      - zk3Port=2883
+      - gameDBHost=192.168.121.101
+      - gameDBUser=root
+      - gameDBPassword=123456
+      - gameIndexNum=2
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 256M
+        reservations:
+          cpus: "0.125"
+          memory: 64M
     network_mode: bridge

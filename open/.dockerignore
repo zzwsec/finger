@@ -10,3 +10,9 @@ Dockerfile
 game_list.txt
 login_list.txt
 init.txt
+./cdn/
+./execute/
+./getino/
+./loglevel/
+./message/
+./getsomething/
