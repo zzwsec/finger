@@ -21,10 +21,3 @@
   tags:
     - groups
     - increment
-
-- name: 睡 1 秒
-  pause:
-    seconds: 1
-  tags:
-    - groups
-    - increment

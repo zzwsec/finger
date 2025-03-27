@@ -14,7 +14,3 @@
   args:
     chdir: "/data/{{ log_item }}/"
   when: log_stat.rc == 0
-
-- name: 睡 1 秒
-  pause:
-    seconds: 1
