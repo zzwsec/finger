@@ -27,7 +27,7 @@ step4:
   - game: ansible-playbook playbook/game/game-entry.yaml -t increment
   - gm: ansible-playbook playbook/gm/gm-entry.yaml
   - log: ansible-playbook playbook/log/log-entry.yaml
-  - gate: ansible-playbook playbook/gate/gate-entry.yaml -t increment
-  - login: ansible-playbook playbook/login/login-entry.yaml -t increment
+  - gate: ansible-playbook playbook/gate/gate-entry.yaml
+  - login: ansible-playbook playbook/login/login-entry.yaml
   - zk: ansible-playbook playbook/zk/zk-entry.yaml
   - global: ansible-playbook playbook/global/global-entry.yaml
