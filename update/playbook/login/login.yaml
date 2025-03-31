@@ -1,0 +1,19 @@
+- name: 复制文件
+  shell: "command cp -rf /data/update/app/* /data/server/{{ login_item }}/"
+  tags:
+    - alldo
+
+- name: 过滤 login 进程
+  shell: pgrep -af '/data/server/{{ login_item }}/p8_app_server'
+  register: login_stat
+  ignore_errors: yes
+  tags:
+    - alldo
+
+- name: Reload login 进程（若存在）
+  shell: "./server.sh reload && sleep 1 && ./server.sh reload"
+  args:
+    chdir: "/data/server/{{ login_item }}"
+  when: login_stat.rc == 0
+  tags:
+    - alldo

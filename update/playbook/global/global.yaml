@@ -1,0 +1,19 @@
+- name: 复制文件
+  shell: "command cp -rf /data/update/app/* /data/center/{{ global_item }}/"
+  tags:
+    - alldo
+
+- name: 过滤 global 进程
+  shell: pgrep -af '/data/center/{{ global_item }}/p8_app_server'
+  register: global_stat
+  ignore_errors: yes
+  tags:
+    - alldo
+
+- name: Reload global 进程（若存在）
+  shell: "./server.sh reload && sleep 1 && ./server.sh reload"
+  args:
+    chdir: "/data/center/{{ global_item }}"
+  when: global_stat.rc == 0
+  tags:
+    - alldo

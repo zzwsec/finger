@@ -1,0 +1,13 @@
+- hosts: "{{ host_name }}"
+  tasks:
+    - name: 1-1 limit-yaml game编号放入到limit文件中
+      lineinfile:
+        path: "{{ list_path }}/limit_create.txt"
+        line: "{{ area_id }}"
+        create: yes
+    
+    - name: 1-2 limit-yaml 使用临时文件存放, 排序并去重 limit_create.txt
+      shell: "sort -n {{ list_path }}/limit_create.txt | uniq > {{ list_path }}/limit_create_sorted.txt"
+
+    - name: 1-3 limit-yaml 替换文件为去重后的内容
+      command: "mv -f {{ list_path }}/limit_create_sorted.txt {{ list_path }}/limit_create.txt"

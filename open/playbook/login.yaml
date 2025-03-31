@@ -1,0 +1,14 @@
+- hosts: "{{ host_name }}"
+  tasks:
+    - name: 搜索当前节点的 login 实例
+      shell: "find /data/server/ -maxdepth 1 -type d -name 'login*' -printf '%f\n'"
+      register: login_list
+      changed_when: false
+
+    - name: 重载当前节点的 login 实例
+      shell: "./server.sh reload && sleep 3"
+      args:
+        chdir: "/data/server/{{ login_item }}/"
+      loop: "{{ login_list.stdout_lines }}"
+      loop_control:
+        loop_var: login_item

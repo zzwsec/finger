@@ -1,0 +1,18 @@
+- hosts: gate
+  tasks:
+    - name: 检查 gate 目录
+      shell: "find /data/server/ -maxdepth 1 -type d -name 'gate*' -printf '%f\n'"
+      register: gate_list
+      changed_when: false
+      tags:
+        - start
+        - stop
+
+    - name: 动态处理 gate 实例
+      include_tasks: gate.yaml
+      loop: "{{ gate_list.stdout_lines }}"
+      loop_control:
+        loop_var: gate_item
+      tags:
+        - start
+        - stop

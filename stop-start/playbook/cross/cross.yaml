@@ -1,0 +1,21 @@
+- name: 过滤 cross 进程
+  shell: pgrep -af '/data/{{ cross_item }}/p8_app_server'
+  register: cross_stat
+  ignore_errors: yes
+  tags:
+    - stop
+
+- name: stop cross 进程（若存在）  
+  shell: "./server.sh flush && sleep 10 && ./server.sh stop"
+  args:
+    chdir: "/data/{{ cross_item }}/"
+  when: cross_stat.rc == 0
+  tags:
+    - stop
+
+- name: start cross 进程
+  shell: "./server.sh start"
+  args:
+    chdir: "/data/{{ cross_item }}/"
+  tags:
+    - start

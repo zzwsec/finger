@@ -1,0 +1,19 @@
+- hosts: all
+  tasks:
+    - name: 检查 process 是否运行
+      shell: "pgrep -f processcontrol-allserver"
+      register: process_stat
+      ignore_errors: yes
+      tags:
+        - stop
+
+    - name: 停止 process
+      shell: "pkill -9 -f processcontrol-allserver"
+      when: process_stat.rc == 0
+      tags:
+        - stop
+
+    - name: 启动 process
+      shell: "nohup bash /data/tool/processcontrol-allserver.sh > /dev/null 2>&1 &"
+      tags:
+        - start

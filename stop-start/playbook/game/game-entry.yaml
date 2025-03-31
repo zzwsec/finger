@@ -1,0 +1,18 @@
+- hosts: game
+  tasks:
+    - name: 检查 game 目录
+      shell: "find /data/ -maxdepth 1 -type d -name 'server[0-9]*' -printf '%f\n'"
+      register: game_list
+      changed_when: false
+      tags:
+        - stop
+        - start
+
+    - name: 动态处理 game 实例
+      include_tasks: game.yaml
+      loop: "{{ game_list.stdout_lines }}"
+      loop_control:
+        loop_var: game_item
+      tags:
+        - stop
+        - start
