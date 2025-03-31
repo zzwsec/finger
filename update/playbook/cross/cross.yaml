@@ -1,9 +1,8 @@
 - name: 复制文件
-  copy:
-    src: /data/update/app/
-    dest: /data/{{ cross_item }}/
-    remote_src: yes
-  tags: increment
+  shell: "command cp -rf /data/update/app/* /data/{{ cross_item }}/"
+  tags:
+    - increment
+    - alldo
 
 - name: 过滤 cross 进程
   shell: pgrep -af '/data/{{ cross_item }}/p8_app_server'
@@ -12,6 +11,7 @@
   tags:
     - groups
     - increment
+    - alldo
 
 - name: Reload cross 进程（若存在）
   shell: "./server.sh reload && sleep 1 && ./server.sh reload"
@@ -19,5 +19,6 @@
     chdir: "/data/{{ cross_item }}"
   when: cross_stat.rc == 0
   tags:
-    - groups
     - increment
+    - alldo
+    - groups

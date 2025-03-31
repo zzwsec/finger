@@ -1,9 +1,8 @@
 - name: 复制文件
-  copy:
-    src: /data/update/app/
-    dest: /data/{{ game_item }}/game/
-    remote_src: yes
-  tags: increment
+  shell: "command cp -rf /data/update/app/* /data/{{ game_item }}/game/"
+  tags:
+    - increment
+    - alldo
 
 - name: 过滤 {{ game_item }} 进程
   shell: pgrep -af '/data/{{ game_item }}/game/p8_app_server'
@@ -12,6 +11,7 @@
   tags:
     - groups
     - increment
+    - alldo
 
 - name: Reload game 进程（若存在）
   shell: "./server.sh reload"
@@ -21,3 +21,4 @@
   tags:
     - groups
     - increment
+    - alldo

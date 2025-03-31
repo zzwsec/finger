@@ -4,25 +4,35 @@
       shell: "find /data/server -maxdepth 1 -type d -name 'login*' -printf '%f\n'"
       register: login_list
       changed_when: false
+      tags:
+        - alldo
 
-    - name: 分发更新压缩包
+    - name: 分发alldo.tar.gz压缩包
       copy:
-        src: "{{ playbook_dir }}/../../file/all.tar.gz"
-        dest: /data/update/all.tar.gz
+        src: "{{ playbook_dir }}/../../file/alldo.tar.gz"
+        dest: /data/update/alldo.tar.gz
+      tags:
+        - alldo
 
     - name: 删除原本的 app 目录
       file:
         path: /data/update/app
         state: absent
+      tags:
+        - alldo
 
-    - name: 执行解压
+    - name: 执行解压alldo.tar.gz
       unarchive:
-        src: /data/update/all.tar.gz
+        src: /data/update/alldo.tar.gz
         dest: /data/update/
         remote_src: yes
+      tags:
+        - alldo
 
     - name: 动态处理 login 实例
       include_tasks: login.yaml
       loop: "{{ login_list.stdout_lines }}"
       loop_control:
         loop_var: login_item
+      tags:
+        - alldo
