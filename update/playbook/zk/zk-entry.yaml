@@ -1,0 +1,38 @@
+- hosts: zk
+  tasks:
+    - name: 检查 zk 目录
+      shell: "find /data/center -maxdepth 1 -type d -name 'zk*' -printf '%f\n'"
+      register: zk_list
+      changed_when: false
+      tags:
+        - alldo
+
+    - name: 分发alldo.tar.gz压缩包
+      copy:
+        src: "{{ playbook_dir }}/../../file/alldo.tar.gz"
+        dest: /data/update/alldo.tar.gz
+      tags:
+        - alldo
+
+    - name: 删除原本的 app 目录
+      file:
+        path: /data/update/app
+        state: absent
+      tags:
+        - alldo
+
+    - name: 执行解压alldo.tar.gz
+      unarchive:
+        src: /data/update/alldo.tar.gz
+        dest: /data/update/
+        remote_src: yes
+      tags:
+        - alldo
+
+    - name: 动态处理 zk 实例
+      include_tasks: zk.yaml
+      loop: "{{ zk_list.stdout_lines }}"
+      loop_control:
+        loop_var: zk_item
+      tags:
+        - alldo

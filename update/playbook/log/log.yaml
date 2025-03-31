@@ -1,0 +1,22 @@
+- name: 复制文件
+  shell: "command cp -rf /data/update/app/* /data/{{ log_item }}/"
+  tags:
+    - increment
+    - alldo
+
+- name: 过滤 {{ log_item }} 进程
+  shell: pgrep -af '/data/{{ log_item }}/p8_app_server'
+  register: log_stat
+  ignore_errors: yes
+  tags:
+    - increment
+    - alldo
+
+- name: Reload log 进程（若存在）
+  shell: "./server.sh reload"
+  args:
+    chdir: "/data/{{ log_item }}/"
+  when: log_stat.rc == 0
+  tags:
+    - increment
+    - alldo

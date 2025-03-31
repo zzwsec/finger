@@ -1,0 +1,56 @@
+- hosts: gm
+  tasks:
+    - name: 检查 gm 目录
+      shell: "find /data -maxdepth 1 -type d -name 'gmserver[0-9]*' -printf '%f\n'"
+      register: gm_list
+      changed_when: false
+      tags:
+        - increment
+        - alldo
+
+    - name: 分发increment.tar.gz压缩包
+      copy:
+        src: "{{ playbook_dir }}/../../file/increment.tar.gz"
+        dest: /data/update/increment.tar.gz
+      tags:
+        - increment
+
+    - name: 分发alldo.tar.gz压缩包
+      copy:
+        src: "{{ playbook_dir }}/../../file/alldo.tar.gz"
+        dest: /data/update/alldo.tar.gz
+      tags:
+        - alldo
+
+    - name: 删除原本的 app 目录
+      file:
+        path: /data/update/app
+        state: absent
+      tags:
+        - increment
+        - alldo
+
+    - name: 执行解压increment.tar.gz
+      unarchive:
+        src: /data/update/increment.tar.gz
+        dest: /data/update/
+        remote_src: yes
+      tags:
+        - increment
+
+    - name: 执行解压alldo.tar.gz
+      unarchive:
+        src: /data/update/alldo.tar.gz
+        dest: /data/update/
+        remote_src: yes
+      tags:
+        - alldo
+
+    - name: 动态处理 gm 实例
+      include_tasks: gm.yaml
+      loop: "{{ gm_list.stdout_lines }}"
+      loop_control:
+        loop_var: gm_item
+      tags:
+        - increment
+        - alldo

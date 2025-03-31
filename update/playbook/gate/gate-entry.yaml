@@ -1,0 +1,38 @@
+- hosts: gate
+  tasks:
+    - name: 检查 gate 目录
+      shell: "find /data/server -maxdepth 1 -type d -name 'gate*' -printf '%f\n'"
+      register: gate_list
+      changed_when: false
+      tags:
+        - alldo
+      
+    - name: 分发alldo.tar.gz压缩包
+      copy:
+        src: "{{ playbook_dir }}/../../file/alldo.tar.gz"
+        dest: /data/update/alldo.tar.gz
+      tags:
+        - alldo
+
+    - name: 删除原本的 app 目录
+      file:
+        path: /data/update/app
+        state: absent
+      tags:
+        - alldo
+
+    - name: 执行解压alldo.tar.gz
+      unarchive:
+        src: /data/update/alldo.tar.gz
+        dest: /data/update/
+        remote_src: yes
+      tags:
+        - alldo
+
+    - name: 动态处理 gate 实例
+      include_tasks: gate.yaml
+      loop: "{{ gate_list.stdout_lines }}"
+      loop_control:
+        loop_var: gate_item
+      tags:
+        - alldo

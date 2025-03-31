@@ -1,0 +1,21 @@
+- name: 过滤 zk 进程
+  shell: pgrep -af '/data/center/{{ zk_item }}/p8_app_server'
+  register: zk_stat
+  ignore_errors: yes
+  tags:
+    - stop
+
+- name: stop zk 进程（若存在）  
+  shell: "./server.sh stop"
+  args:
+    chdir: "/data/center/{{ zk_item }}/"
+  when: zk_stat.rc == 0
+  tags:
+    - stop
+
+- name: start zk 进程
+  shell: "./server.sh start"
+  args:
+    chdir: "/data/center/{{ zk_item }}/"
+  tags:
+    - start

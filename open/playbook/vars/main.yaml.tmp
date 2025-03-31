@@ -1,0 +1,21 @@
+domain: ${domain}
+current_ip: ${currentIP} # 本地内网 ip
+game_port: ${gamePort} # 端口
+thread: ${thread}
+pay_notify_url: ${payNotifyUrl}  #kingnet 回调地址
+discovers:
+  - zkip: ${zk1IP}
+    zkport: ${zk1Port}
+  - zkip: ${zk2IP}
+    zkport: ${zk2Port}
+  - zkip: ${zk3IP}
+    zkport: ${zk3Port}
+game_db:
+  db_host: ${gameDBHost}
+  db_user: ${gameDBUser}
+  db_password: ${gameDBPassword}
+  db_name: ${gameDBName}
+group_id: ${groupID}
+area_id: ${areaID}
+game_index_num: ${gameIndexNum}
+open_time: "{{ lookup('pipe', 'date +\"%Y-%m-%dT%H:01:00\"') }}"

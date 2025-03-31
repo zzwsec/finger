@@ -1,0 +1,21 @@
+- name: 过滤 gate 进程
+  shell: pgrep -af '/data/server/{{ gate_item }}/p8_app_server'
+  register: gate_stat
+  ignore_errors: yes
+  tags:
+    - stop
+
+- name: stop gate 进程（若存在）
+  shell: "./server.sh stop"
+  args:
+    chdir: "/data/server/{{ gate_item }}"
+  when: gate_stat.rc == 0
+  tags:
+    - stop
+
+- name: start gate 进程
+  shell: "./server.sh start"
+  args:
+    chdir: "/data/server/{{ gate_item }}"
+  tags:
+    - start

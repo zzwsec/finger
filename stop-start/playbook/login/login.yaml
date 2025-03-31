@@ -1,0 +1,21 @@
+- name: 过滤 login 进程
+  shell: pgrep -af '/data/server/{{ login_item }}/p8_app_server'
+  register: login_stat
+  ignore_errors: yes
+  tags:
+    - stop
+
+- name: stop login 进程（若存在）  
+  shell: "./server.sh stop"
+  args:
+    chdir: "/data/server/{{ login_item }}/"
+  when: login_stat.rc == 0
+  tags:
+    - stop
+
+- name: start login 进程
+  shell: "./server.sh start"
+  args:
+    chdir: "/data/server/{{ login_item }}/"
+  tags:
+    - start

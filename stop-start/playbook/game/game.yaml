@@ -1,0 +1,21 @@
+- name: 过滤 game 进程
+  shell: pgrep -af '/data/{{ game_item }}/game/p8_app_server'
+  register: game_stat
+  ignore_errors: yes
+  tags:
+    - stop
+
+- name: stop game 进程（若存在）
+  shell: "./server.sh flush && sleep 10 && ./server.sh stop"
+  args:
+    chdir: "/data/{{ game_item }}/game/"
+  when: game_stat.rc == 0
+  tags:
+    - stop
+
+- name: start game 进程
+  shell: "./server.sh start"
+  args:
+    chdir: "/data/{{ game_item }}/game/"
+  tags:
+    - start
