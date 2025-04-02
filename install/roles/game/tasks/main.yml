@@ -42,6 +42,9 @@
     - "/data/tmp_create_game{{ area_id }}/lua/config/last_time.db"
     - "/data/tmp_create_game{{ area_id }}/lua/config/last_time.db.gc"
     - "/data/tmp_create_game{{ area_id }}/lua/config/last_time.db.map"
+  tags:
+    - base
+    - start
         
 - name: 1-6 修改权限
   shell: |
