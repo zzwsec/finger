@@ -33,7 +33,17 @@
     - base
     - start
 
-- name: 1-5 修改权限
+- name: 1-5 删除旧的 last_time.db last_time.db.gc last_time.db.map open_time.lua
+  file:
+    path: "{{item}}"
+    state: absent
+  loop:
+    - "/data/tmp_create_game{{ area_id }}/lua/config/open_time.lua"
+    - "/data/tmp_create_game{{ area_id }}/lua/config/last_time.db"
+    - "/data/tmp_create_game{{ area_id }}/lua/config/last_time.db.gc"
+    - "/data/tmp_create_game{{ area_id }}/lua/config/last_time.db.map"
+        
+- name: 1-6 修改权限
   shell: |
     find /data/tmp_create_game{{ area_id }} -type f -exec chmod 644 {} \;
     find /data/tmp_create_game{{ area_id }} -type d -exec chmod 755 {} \;
@@ -41,7 +51,7 @@
     - base
     - start
 
-- name: 1-6 复制 server.app.lua.j2 和 zones.lua.j2
+- name: 1-7 复制 server.app.lua.j2 和 zones.lua.j2
   template:
     src: "{{ item }}.j2"
     dest: "/data/tmp_create_game{{ area_id }}/etc/{{ item }}"
@@ -52,7 +62,7 @@
     - base
     - start
 
-- name: 1-7 复制 open_time.lua.j2
+- name: 1-8 复制 open_time.lua.j2
   template:
     src: open_time.lua.j2
     dest: "/data/tmp_create_game{{ area_id }}/lua/config/open_time.lua"
@@ -60,7 +70,7 @@
     - base
     - start
 
-- name: 1-8 增加执行权限
+- name: 1-9 增加执行权限
   file:
     path: "{{ item }}"
     mode: '0755'
@@ -71,7 +81,7 @@
     - base
     - start
 
-- name: 1-9 创建解压目录
+- name: 1-10 创建解压目录
   file:
     path: "/data/server{{ area_id }}/game/"
     state: directory
@@ -80,7 +90,7 @@
     - base
     - start
 
-- name: 1-10 移动目录
+- name: 1-11 移动目录
   shell: |
       mv /data/tmp_create_game{{ area_id }}/* /data/server{{ area_id }}/game
       rm -rf /data/tmp_create_game{{ area_id }}/
@@ -88,7 +98,7 @@
     - base
     - start
 
-- name: 1-11 执行 /data/server{{ area_id }}/game/server.sh start
+- name: 1-12 执行 /data/server{{ area_id }}/game/server.sh start
   shell: "./server.sh start"
   args:
     chdir: "/data/server{{ area_id }}/game/"
@@ -102,14 +112,14 @@
     - base
     - start
 
-- name: 1-12 检测进程状态
+- name: 1-13 检测进程状态
   shell: "pgrep -f /data/server{{ area_id }}/game/p8_app_server"
   register: start_stat
   ignore_errors: yes
   tags:
     - start
 
-- name: 1-13 如果检测不到进程，退出剧本
+- name: 1-14 如果检测不到进程，退出剧本
   fail:
     msg: "服务启动失败，已尝试启动但无进程"
   when: start_stat.rc != 0
