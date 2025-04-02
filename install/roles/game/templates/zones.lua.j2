@@ -1,0 +1,15 @@
+﻿-- utf-8
+
+-- 小区列表
+zones = {
+    [{{ area_id }}] = { {{ area_id }}, },
+}
+
+-- 校验小区列表
+local zone_idss = {}
+for _, zone_ids in pairs(zones) do
+    for _, zone_id in pairs(zone_ids) do
+        assert(not zone_idss[zone_id])
+        zone_idss[zone_id] = zone_id
+    end
+end

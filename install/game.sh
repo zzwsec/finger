@@ -22,6 +22,7 @@ error_exit() {
 
 # 通过服务编号获取主机ip
 get_ip() {
+    local server_num=$1
     local current_ip
     while read -r line;do
       current_ip=$(awk '{print $1}' <<< "$line")
@@ -79,8 +80,20 @@ group_id=$(get_group_id)
 index=$(get_index)
 game_port=$((game_port_start + index * 1000))
 
+pre_server_num=$((server_num-1))
+pre_ip=$(get_ip "$pre_server_num")
+
 read -r -p "当前配置：IP=$current_ip | 端口=$game_port | 编号=$server_num | 是否启动：$flag |输入任意值继续任务"
 
+echo "正在从 game$pre_server_num 获取更新包" && sleep 1
+if ! ansible-playbook -i "${pre_ip}," -e "host_name=${pre_ip}" -e "role_name=package" -e "area_id=$pre_server_num" "${playbookFile}"; then
+    error_exit "Ansible任务失败，任务名：package，server_num编号: $pre_server_num" 14
+else
+    echo "Ansible任务成功，任务名：package，server_num编号: $pre_server_num"
+fi
+
+clear
+echo "成功获取更新包，正在安装" && sleep 1
 export current_ip game_port server_num group_id
 envsubst < "${gameVars}/main.yml.tmp" > "${gameVars}/main.yml" || error_exit "配置文件生成失败" 9
 
