@@ -1,4 +1,4 @@
-domain: p8-dev
+domain: /p8
 current_ip: ${current_ip} # 本地内网 ip
 game_port: ${game_port} # 端口
 thread: 8

@@ -20,7 +20,7 @@ services:
       - criticalRechargeCount=100  # 充值人数临界值
       - criticalMoney=6  # 充值金额临界值
       - sleepInterval=60  # 开放白单与限制创建之间的时间间隔。单位：秒
-      - domain=p8
+      - domain=/p8
       - thread=8
       - payNotifyUrl=http://127.0.0.1:8088/p8/api/callback_kingnet.php
       - zk1IP=192.168.121.101
