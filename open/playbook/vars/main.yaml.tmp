@@ -18,4 +18,8 @@ game_db:
 group_id: ${groupID}
 area_id: ${areaID}
 game_index_num: ${gameIndexNum}
+<<<<<<< HEAD
 open_time: "{{ lookup('pipe', 'date +\"%Y-%m-%dT%H:01:00\"') }}"
+=======
+open_time: "{{ lookup('pipe', 'date +\"%Y-%m-%dT%H:01:00\"') }}"
+>>>>>>> dev
