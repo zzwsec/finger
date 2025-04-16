@@ -1,4 +1,4 @@
-name: 'github actions mirror'
+name: 'github actions mirror to gitlab'
 
 on:
   push:
