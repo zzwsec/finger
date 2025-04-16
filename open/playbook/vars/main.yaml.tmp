@@ -1,4 +1,4 @@
-domain: /${domain}
+domain: ${domain}
 current_ip: ${currentIP} # 本地内网 ip
 game_port: ${gamePort} # 端口
 thread: ${thread}
