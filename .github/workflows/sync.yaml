@@ -20,6 +20,6 @@ jobs:
         with:
           # REMOTE: git@gitlab.com:${{ github.repository }}.git
           REMOTE: git@gitlab.com:z177859110333/finger.git
-          GIT_SSH_PRIVATE_KEY: ${{ secrets.TENCENT_PRIVATE_KEY }}
+          GIT_SSH_PRIVATE_KEY: ${{ secrets.CLAW_PRIVATE_KEY }}
           PUSH_ALL_REFS: false
           GIT_SSH_NO_VERIFY_HOST: true
