@@ -1,4 +1,4 @@
-name: 'github actions mirror to gitlab'
+name: 'github actions mirror'
 
 on:
   push:
@@ -18,7 +18,8 @@ jobs:
       - name: 'mirror to gitlab'
         uses: yesolutions/mirror-action@v0.7.0
         with:
-          REMOTE: git@gitlab.com:${{ github.repository }}.git
+          # REMOTE: git@gitlab.com:${{ github.repository }}.git
+          REMOTE: git@gitlab.com:z177859110333/finger.git
           GIT_SSH_PRIVATE_KEY: ${{ secrets.TENCENT_PRIVATE_KEY }}
           PUSH_ALL_REFS: false
           GIT_SSH_NO_VERIFY_HOST: true
