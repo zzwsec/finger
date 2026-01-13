@@ -1,8 +1,8 @@
 docker-compose.yml
 docker-compose.yaml
-.idea
+.idea/
 .gitignore
-.vscode
+.vscode/
 go.mod
 go.sum
 main.go

@@ -20,7 +20,6 @@ import (
 	"open/execute"
 	"open/getsomething"
 	"open/loglevel"
-	"open/message"
 )
 
 const (
@@ -127,7 +126,6 @@ func main() {
 		if err := recover(); err != nil {
 			stack := debug.Stack()
 			errLogger.Printf("Panic occurred: %v\nStack: %s", err, stack)
-			message.SendMessage(fmt.Sprintf("Panic occurred: %v", err))
 			os.Exit(1)
 		}
 	}()
@@ -162,7 +160,8 @@ func mainLoop(db *sql.DB) {
 
 		nextNum := currentNum + 1
 		if !getsomething.ValidNextServer(nextNum, ipMap) {
-			panic(fmt.Sprintf("待配置 game%d 为不存在: \n", nextNum))
+			infoLogger.Printf("待配置 game%d 不存在: \n", nextNum)
+			os.Exit(0)
 		}
 
 		rechargeCount, err := execute.QueryCount(db, rechargeCountSql, currentNum, criticalMoney)
@@ -182,7 +181,7 @@ func mainLoop(db *sql.DB) {
 					currentNum = nextNum
 				}
 			} else {
-				errLogger.Panicf("game 编号: %d 开服失败\n", nextNum)
+				errLogger.Printf("game 编号: %d 开服期间出现异常\n", nextNum)
 			}
 			continue
 		}
@@ -279,8 +278,7 @@ func executeWithRetry(opName string, fn func(int) error, arg int) bool {
 
 func handleSignals(ch <-chan os.Signal) {
 	sig := <-ch
-	successLogger.Printf("收到信号: %v，执行清理", sig)
-	message.SendMessage("用户手动退出")
+	successLogger.Printf("收到退出信号: %v，手动退出", sig)
 	os.Exit(0)
 }
 
