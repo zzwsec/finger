@@ -23,7 +23,8 @@ ARG CACHE_ID=apk-cache
 ARG TARGETARCH
 COPY --from=builder /out/open-linux /open/open-linux
 COPY --from=builder /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
-COPY ansible.cfg playbook ./
+COPY ansible.cfg ./
+COPY playbook ./
 RUN --mount=type=cache,id=${CACHE_ID}-${TARGETARCH},target=/var/cache/apk,sharing=locked \
     ln -s /var/cache/apk /etc/apk/cache \
     && apk update \
