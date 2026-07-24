@@ -84,7 +84,7 @@
     - base
     - start
 
-- name: 1-10 创建解压目录
+- name: 1-10 创建游戏运行目录
   file:
     path: "/data/server{{ area_id }}/game/"
     state: directory
@@ -118,7 +118,7 @@
 - name: 1-13 检测进程状态
   shell: "pgrep -f /data/server{{ area_id }}/game/p8_app_server"
   register: start_stat
-  ignore_errors: yes
+  ignore_errors: true
   tags:
     - start
 

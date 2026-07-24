@@ -1,106 +1,179 @@
 #!/bin/bash
 
+# 时间: 2025/3/11
+# 功能: 游戏服务安装脚本，通过 Ansible 自动部署游戏服务
+
+set -o nounset
+
+# 颜色定义
+red='\033[91m'
+green='\033[92m'
+yellow='\033[93m'
+white='\033[0m'
+
+_err_msg() { echo -e "\033[41m\033[1m错误${white} $1"; }
+_suc_msg() { echo -e "\033[42m\033[1m成功${white} $1"; }
+_info_msg() { echo -e "\033[43m\033[1;37m提示${white} $1"; }
+
+# 路径定义
 script_dir=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
 game_port_start=3340
 gameListFile="${script_dir}/install_list/game_list.txt"
 playbookFile="${script_dir}/example.yaml"
 gameVars="${script_dir}/roles/game/vars"
 
-usage() {
-    echo "使用方法：bash $0 [服务编号]"
-    echo "参数说明："
-    echo "  1.要安装的服务编号 -- 需要在 game_list.txt 文件中存在"
-    echo "  2.是否在安装后启动 -- 默认不启动"
-    exit 1
+# 清理临时配置文件
+cleanup() {
+    [[ -f "${gameVars}/main.yml" ]] && rm -f "${gameVars}/main.yml"
 }
+trap cleanup EXIT
 
-# 错误处理函数
+# 错误处理
 error_exit() {
-    echo "错误：$1" >&2
+    _err_msg "$1"
     exit "${2:-1}"
 }
 
-# 通过服务编号获取主机ip
-get_ip() {
-    local server_num=$1
-    local current_ip
-    while read -r line;do
-      current_ip=$(awk '{print $1}' <<< "$line")
-      if awk -F '[][]' '{print $2}' <<<"$line" | tr ',' ' ' | grep -q -w "$server_num" ;then
-        echo "$current_ip"
-        return 0
-      fi
-    done < "$gameListFile"
-    error_exit "输入的服务编号无效" 8
+# 使用说明
+usage() {
+    echo "使用方法：bash $0 <服务编号> [base|start]"
+    echo "参数说明："
+    echo "  服务编号  必填，需要在 game_list.txt 中存在"
+    echo "  base      可选，仅安装不启动（默认）"
+    echo "  start     可选，安装并启动"
+    exit 1
 }
 
-# 通过服务编号获取 group_id
+# 通过服务编号获取主机 IP
+get_ip() {
+    local target=$1
+    local ip
+    ip=$(awk -v target="$target" '
+        NF > 0 {
+            ip = $1
+            line = $0
+            sub(/.*\[/, "", line)
+            sub(/\].*/, "", line)
+            n = split(line, arr, /[, ]+/)
+            for (i = 1; i <= n; i++) {
+                if (arr[i] != "" && arr[i] == target) {
+                    print ip
+                    exit 0
+                }
+            }
+        }
+    ' "$gameListFile")
+    [[ -z "$ip" ]] && error_exit "服务编号 $target 未在 game_list.txt 中找到" 8
+    echo "$ip"
+}
+
+# 通过 IP 获取 group_id
 get_group_id() {
+    local target_ip=$1
     local group_id
-    group_id=$(awk -v current_ip="$current_ip" '$1==current_ip {print $NF; exit}' "$gameListFile")
-    [[ -z "$group_id" ]] && error_exit "未找到匹配的 IP 或 group_id" 6
-    [[ "$group_id" =~ ^[0-9]+$ ]] || error_exit "game_list.txt 中的group_id无效" 6
+    group_id=$(awk -v target="$target_ip" 'NF > 0 && $1 == target {print $NF; exit}' "$gameListFile")
+    [[ -z "$group_id" ]] && error_exit "未找到 IP $target_ip 对应的 group_id" 6
+    [[ "$group_id" =~ ^[0-9]+$ ]] || error_exit "game_list.txt 中的 group_id 无效: $group_id" 6
     echo "$group_id"
 }
 
-#获取服务编号的偏移量
+# 获取服务编号在主机中的偏移量（用于端口计算）
 get_index() {
-  local line
-  IFS=' ' read -ra line <<< "$(awk -v current_ip="$current_ip" '$1==current_ip {print $2; exit}' "$gameListFile" | tr -d '[]' | tr ',' ' ')"
-  for i in "${!line[@]}";do
-    if [ "$server_num" -eq "${line[$i]}" ];then
-      echo "$i"
-      return 0
-    fi
-  done
-  error_exit "服务编号无效" 8
+    local target_ip=$1
+    local target_num=$2
+    local index
+    index=$(awk -v ip="$target_ip" -v num="$target_num" '
+        NF > 0 && $1 == ip {
+            line = $0
+            sub(/.*\[/, "", line)
+            sub(/\].*/, "", line)
+            n = split(line, arr, /[, ]+/)
+            for (i = 1; i <= n; i++) {
+                if (arr[i] != "" && arr[i] == num) {
+                    print i - 1
+                    exit 0
+                }
+            }
+        }
+    ' "$gameListFile")
+    [[ -z "$index" ]] && error_exit "服务编号 $target_num 在 IP $target_ip 上无效" 8
+    echo "$index"
 }
 
-check_env() {
-  [[ ! -f "${gameVars}/main.yml.tmp" ]] && error_exit "模板文件不存在" 8
-  [[ ! -f "$gameListFile" ]] && error_exit "$gameListFile 不存在" 2
-  [[ ! -f "$playbookFile" ]] && error_exit "$playbookFile 不存在" 3
-  sed -i '/^$/d' "$gameListFile" || error_exit "清理 game_list.txt 空行失败" 5
+# 运行 Ansible Playbook
+run_playbook() {
+    local ip=$1
+    local role=$2
+    local desc=$3
+    shift 3
+    _info_msg "正在执行: $desc"
+    if ansible-playbook -i "${ip}," -e "host_name=${ip}" -e "role_name=${role}" "$@" "${playbookFile}"; then
+        _suc_msg "$desc 完成"
+    else
+        error_exit "$desc 失败" 14
+    fi
 }
+
+# 环境检查
+check_env() {
+    [[ ! -f "${gameVars}/main.yml.tmp" ]] && error_exit "模板文件 main.yml.tmp 不存在" 8
+    [[ ! -f "$gameListFile" ]] && error_exit "文件 $gameListFile 不存在" 2
+    [[ ! -f "$playbookFile" ]] && error_exit "文件 $playbookFile 不存在" 3
+    command -v ansible-playbook &>/dev/null || error_exit "ansible-playbook 未安装" 4
+    command -v envsubst &>/dev/null || error_exit "envsubst 未安装" 4
+}
+
+# ========== 主流程 ==========
 
 check_env
 
-[[ $# -gt 2 ]] && usage
-flag=${2:-base}
+# 参数校验
+[[ $# -eq 0 || $# -gt 2 ]] && usage
 server_num=$1
-if [[ "$flag" != "base" ]] && [[ "$flag" != "start" ]]; then
-    error_exit "输入标志位无效" 6
+flag=${2:-base}
+
+if [[ "$flag" != "base" && "$flag" != "start" ]]; then
+    error_exit "标志位无效: $flag（可选值: base|start）" 6
 fi
-if [[ ! $server_num =~ ^[0-9]+$ ]]; then
-    error_exit "输入服务编号无效" 6
+if [[ ! "$server_num" =~ ^[0-9]+$ ]]; then
+    error_exit "服务编号无效: $server_num（需为数字）" 6
 fi
 
+# 获取配置信息
 current_ip=$(get_ip "$server_num")
-group_id=$(get_group_id)
-index=$(get_index)
+group_id=$(get_group_id "$current_ip")
+index=$(get_index "$current_ip" "$server_num")
 game_port=$((game_port_start + index * 1000))
 
-pre_server_num=$((server_num-1))
-pre_ip=$(get_ip "$pre_server_num")
+# 获取前一个服务编号（用于获取更新包）
+pre_server_num=$((server_num - 1))
 
-read -r -p "当前配置：IP=$current_ip | 端口=$game_port | 编号=$server_num | 是否启动：$flag |输入任意值继续任务"
+# 显示配置确认信息
+echo "========================================"
+echo "  当前配置"
+echo "========================================"
+echo "  IP:     $current_ip"
+echo "  端口:   $game_port"
+echo "  编号:   $server_num"
+echo "  组号:   $group_id"
+echo "  启动:   $flag"
+echo "========================================"
+read -r -p "确认以上配置，按任意键继续..."
 
-echo "正在从 game$pre_server_num 获取更新包" && sleep 1
-if ! ansible-playbook -i "${pre_ip}," -e "host_name=${pre_ip}" -e "role_name=package" -e "area_id=$pre_server_num" "${playbookFile}"; then
-    error_exit "Ansible任务失败，任务名：package，server_num编号: $pre_server_num" 14
+# 获取更新包
+if [[ "$pre_server_num" -ge 1 ]]; then
+    pre_ip=$(get_ip "$pre_server_num")
+    run_playbook "$pre_ip" "package" "从 game$pre_server_num 获取更新包" -e "area_id=$pre_server_num"
 else
-    echo "Ansible任务成功，任务名：package，server_num编号: $pre_server_num"
+    _info_msg "首个服务编号 $server_num，跳过获取更新包，使用已有更新包"
 fi
 
-clear
-echo "成功获取更新包，正在安装" && sleep 1
+# 生成配置文件
+_info_msg "正在生成配置文件"
 export current_ip game_port server_num group_id
 envsubst < "${gameVars}/main.yml.tmp" > "${gameVars}/main.yml" || error_exit "配置文件生成失败" 9
 
-if ! ansible-playbook -i "${current_ip}," -e "host_name=${current_ip}" -e "role_name=game" "${playbookFile}" -t "$flag"; then
-    error_exit "Ansible任务失败，任务名：game，server_num编号: $server_num" 14
-else
-    echo "Ansible任务成功，任务名：game，server_num编号: $server_num"
-fi
+# 执行安装
+run_playbook "$current_ip" "game" "安装 game$server_num" -t "$flag"
 
-rm -f "${gameVars}/main.yml"
+_suc_msg "game$server_num 安装完成"
