@@ -2,7 +2,7 @@
 
 # 时间: 2026/7/30
 
-set -o nounset
+set -Eeuo pipefail
 umask 077
 
 # 颜色定义
@@ -11,7 +11,7 @@ green='\033[92m'
 yellow='\033[93m'
 white='\033[0m'
 
-_err_msg() { echo -e "\033[41m\033[1m错误${white} $1"; }
+_err_msg() { echo -e "\033[41m\033[1m错误${white} $1" >&2; }
 _suc_msg() { echo -e "\033[42m\033[1m成功${white} $1"; }
 _info_msg() { echo -e "\033[43m\033[1;37m提示${white} $1"; }
 
@@ -26,8 +26,21 @@ gameVarsExample="${gameVars}/main.yml.tmp.example"
 
 # 清理临时配置文件
 cleanup() {
-    [[ -f "${gameVars}/main.yml" ]] && rm -f "${gameVars}/main.yml"
+    if [[ -f "${gameVars}/main.yml" ]] && ! rm -f "${gameVars}/main.yml"; then
+        _err_msg "临时配置 ${gameVars}/main.yml 清理失败"
+    fi
 }
+
+# 捕获未被显式处理的异常
+on_error() {
+    local exit_code=$?
+    local line_no=${BASH_LINENO[0]:-unknown}
+    trap - ERR
+    _err_msg "脚本在第 ${line_no} 行发生未处理错误，退出码: ${exit_code}"
+    exit "$exit_code"
+}
+
+trap on_error ERR
 trap cleanup EXIT
 
 # 错误处理
@@ -65,8 +78,11 @@ get_ip() {
             }
         }
     ' "$gameListFile")
-    [[ -z "$ip" ]] && error_exit "服务编号 $target 未在 game_list.txt 中找到" 8
-    echo "$ip"
+    if [[ -z "$ip" ]]; then
+        _err_msg "服务编号 $target 未在 game_list.txt 中找到"
+        return 8
+    fi
+    printf '%s\n' "$ip"
 }
 
 # 获取服务编号在主机中的偏移量（用于端口计算）
@@ -88,8 +104,29 @@ get_index() {
             }
         }
     ' "$gameListFile")
-    [[ -z "$index" ]] && error_exit "服务编号 $target_num 在 IP $target_ip 上无效" 8
-    echo "$index"
+    if [[ -z "$index" ]]; then
+        _err_msg "服务编号 $target_num 在 IP $target_ip 上无效"
+        return 8
+    fi
+    printf '%s\n' "$index"
+}
+
+# 简单校验安装列表格式
+validate_game_list() {
+    awk '
+        { sub(/\r$/, "") }
+        NF == 0 { next }
+        {
+            valid_rows++
+            if (NF != 2 ||
+                $1 !~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/ ||
+                $2 !~ /^\[[1-9][0-9]*(,[1-9][0-9]*)*\]$/) {
+                invalid = 1
+            }
+        }
+        END { exit !(valid_rows > 0 && !invalid) }
+    ' "$gameListFile" ||
+        error_exit "game_list.txt 格式无效，应为: IP [服务编号列表]" 7
 }
 
 # 运行 Ansible Playbook
@@ -108,6 +145,13 @@ run_playbook() {
 
 # 环境检查
 check_env() {
+    local config_mode
+    local command_name
+
+    for command_name in ansible-playbook envsubst awk grep stat; do
+        command -v "$command_name" &>/dev/null || error_exit "$command_name 未安装" 4
+    done
+
     if [[ ! -f "${gameVars}/main.yml.tmp" ]]; then
         error_exit "生产配置不存在，请先执行: cp ${gameVarsExample} ${gameVars}/main.yml.tmp" 8
     fi
@@ -118,13 +162,9 @@ check_env() {
     [[ "$config_mode" == "600" ]] || error_exit "main.yml.tmp 权限必须为 600，请执行 chmod 600 ${gameVars}/main.yml.tmp" 8
     [[ ! -f "$gameListFile" ]] && error_exit "文件 $gameListFile 不存在" 2
     [[ ! -f "$playbookFile" ]] && error_exit "文件 $playbookFile 不存在" 3
-    command -v ansible-playbook &>/dev/null || error_exit "ansible-playbook 未安装" 4
-    command -v envsubst &>/dev/null || error_exit "envsubst 未安装" 4
 }
 
 # ========== 主流程 ==========
-
-check_env
 
 # 参数校验
 [[ $# -eq 0 || $# -gt 2 ]] && usage
@@ -134,14 +174,18 @@ flag=${2:-base}
 if [[ "$flag" != "base" && "$flag" != "start" ]]; then
     error_exit "标志位无效: $flag（可选值: base|start）" 6
 fi
-if [[ ! "$server_num" =~ ^[0-9]+$ ]]; then
-    error_exit "服务编号无效: $server_num（需为数字）" 6
+if [[ ! "$server_num" =~ ^[1-9][0-9]*$ ]]; then
+    error_exit "服务编号无效: $server_num（必须为无前导零的正整数）" 6
 fi
 
+check_env
+validate_game_list
+
 # 获取配置信息
-current_ip=$(get_ip "$server_num")
-index=$(get_index "$current_ip" "$server_num")
+current_ip=$(get_ip "$server_num") || exit $?
+index=$(get_index "$current_ip" "$server_num") || exit $?
 game_port=$((game_port_start + index * 1000))
+(( game_port <= 65535 )) || error_exit "计算出的端口超出范围: $game_port" 6
 
 # 获取前一个服务编号（用于获取更新包）
 pre_server_num=$((server_num - 1))
@@ -155,11 +199,12 @@ echo "  端口:   $game_port"
 echo "  编号:   $server_num"
 echo "  启动:   $flag"
 echo "========================================"
-read -r -p "确认以上配置，按任意键继续..."
+read -r -p "确认以上配置，按 Enter 继续..." _ ||
+    error_exit "未确认配置，任务已取消" 10
 
 # 获取更新包
 if [[ "$pre_server_num" -ge 1 ]]; then
-    pre_ip=$(get_ip "$pre_server_num")
+    pre_ip=$(get_ip "$pre_server_num") || exit $?
     run_playbook "$pre_ip" "package" "从 game$pre_server_num 获取更新包" -e "area_id=$pre_server_num"
 else
     _info_msg "首个服务编号 $server_num，跳过获取更新包，使用已有更新包"
@@ -168,7 +213,9 @@ fi
 # 生成配置文件
 _info_msg "正在生成配置文件"
 export current_ip game_port server_num
-envsubst < "${gameVars}/main.yml.tmp" > "${gameVars}/main.yml" || error_exit "配置文件生成失败" 9
+envsubst '$current_ip $game_port $server_num' \
+    < "${gameVars}/main.yml.tmp" > "${gameVars}/main.yml" ||
+    error_exit "配置文件生成失败" 9
 
 # 执行安装
 run_playbook "$current_ip" "game" "安装 game$server_num" -t "$flag"
