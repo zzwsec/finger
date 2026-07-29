@@ -11,17 +11,19 @@
     - base
     - start
 
-- name: 清理残留的远端临时目录
-  file:
-    path: "/data/tmp_create_game{{ area_id }}"
-    state: absent
+- name: 确认目标游戏目录不存在
+  stat:
+    path: "/data/game{{ area_id }}"
+  register: target_game_dir
+  changed_when: false
+  failed_when: target_game_dir.stat.exists | default(false)
   tags:
     - base
     - start
 
-- name: 创建远端临时目录
+- name: 创建游戏目录
   file:
-    path: "/data/tmp_create_game{{ area_id }}"
+    path: "/data/game{{ area_id }}"
     state: directory
     mode: '0755'
   tags:
@@ -31,33 +33,7 @@
 - name: 解压游戏安装包
   unarchive:
     src: install.tar.gz
-    dest: "/data/tmp_create_game{{ area_id }}"
-  tags:
-    - base
-    - start
-
-- name: 清理安装包中的运行时文件
-  file:
-    path: "{{ item }}"
-    state: absent
-  loop:
-    - "/data/tmp_create_game{{ area_id }}/log"
-    - "/data/tmp_create_game{{ area_id }}/lua_lib/config/last_time.db"
-    - "/data/tmp_create_game{{ area_id }}/lua_lib/config/last_time.db.gc"
-    - "/data/tmp_create_game{{ area_id }}/lua_lib/config/last_time.db.map"
-  tags:
-    - base
-    - start
-
-- name: 创建配置和日志目录
-  file:
-    path: "{{ item }}"
-    state: directory
-    mode: '0755'
-  loop:
-    - "/data/tmp_create_game{{ area_id }}/etc"
-    - "/data/tmp_create_game{{ area_id }}/lua_lib/config"
-    - "/data/tmp_create_game{{ area_id }}/log"
+    dest: "/data/game{{ area_id }}"
   tags:
     - base
     - start
@@ -65,7 +41,7 @@
 - name: 生成游戏主配置
   template:
     src: server.app.lua.j2
-    dest: "/data/tmp_create_game{{ area_id }}/etc/server.app.lua"
+    dest: "/data/game{{ area_id }}/etc/server.app.lua"
     mode: '0600'
   no_log: true
   tags:
@@ -75,27 +51,15 @@
 - name: 生成区服配置
   template:
     src: zones.lua.j2
-    dest: "/data/tmp_create_game{{ area_id }}/etc/zones.lua"
+    dest: "/data/game{{ area_id }}/etc/zones.lua"
     mode: '0644'
   tags:
     - base
     - start
 
-- name: 校验 profile.lua 包含开服时间配置
-  command:
-    argv:
-      - grep
-      - -Eq
-      - "^local open_server_time[[:space:]]*="
-      - "/data/tmp_create_game{{ area_id }}/lua_lib/config/profile.lua"
-  changed_when: false
-  tags:
-    - base
-    - start
-
-- name: 仅修改 profile.lua 开服时间
+- name: 修改 profile.lua 开服时间
   lineinfile:
-    path: "/data/tmp_create_game{{ area_id }}/lua_lib/config/profile.lua"
+    path: "/data/game{{ area_id }}/lua_lib/config/profile.lua"
     regexp: "^local open_server_time[[:space:]]*="
     line: 'local open_server_time = "{{ open_time }}"'
     state: present
@@ -105,36 +69,9 @@
 
 - name: 设置游戏主程序执行权限
   file:
-    path: "/data/tmp_create_game{{ area_id }}/{{ app_binary }}"
+    path: "/data/game{{ area_id }}/{{ app_binary }}"
     state: file
     mode: '0755'
-  tags:
-    - base
-    - start
-
-- name: 停止已存在的游戏服务
-  systemd:
-    name: "game{{ area_id }}.service"
-    state: stopped
-  failed_when: false
-  tags:
-    - base
-    - start
-
-- name: 删除旧游戏目录
-  file:
-    path: "/data/game{{ area_id }}"
-    state: absent
-  tags:
-    - base
-    - start
-
-- name: 部署游戏目录
-  command:
-    argv:
-      - mv
-      - "/data/tmp_create_game{{ area_id }}"
-      - "/data/game{{ area_id }}"
   tags:
     - base
     - start

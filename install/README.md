@@ -50,7 +50,7 @@ bash game.sh <服务编号> start
 
 三部分依次为主机内网 IP、该主机上的服务编号列表和 `group_id`。
 端口以 `3349` 为起点，同一主机上的后续实例每个增加 `1000`；
-`game_index_num` 从 `1` 开始。
+所有 game 的 `game_index_num` 固定为 `1`。
 
 ## 安装包来源
 
@@ -97,8 +97,13 @@ vim roles/game/vars/main.yml.tmp
 - `lua_lib/config/profile.lua`（只替换 `open_server_time`）
 - `/etc/systemd/system/gameN.service`
 
-`base` 和 `start` 都会停止并替换同编号的旧实例。`base` 最终保持未启动，
-`start` 会启动服务并等待 `systemctl is-active` 返回 `active`。
+该工具只安装全新实例，不会停止或覆盖已有的 `/data/gameN`。如果目标目录
+已存在，部署会直接失败。`base` 只安装并启用 systemd 服务但不启动进程；
+`start` 会安装、启动服务并等待 `systemctl is-active` 返回 `active`。
+
+安装包会直接解压到最终目录，不使用中间临时目录。如果安装过程在解压后
+失败，会保留未完成的 `/data/gameN`；确认没有需要保留的内容后，手工删除
+该目录再重试。
 
 ## 常见检查
 
@@ -114,4 +119,5 @@ cat /data/game1/lua_lib/config/profile.lua
 换行符。
 
 `roles/game/files/install.tar.gz` 可能包含旧实例的数据库配置，因此同样不会
-纳入 Git，并在控制机和远端都限制为 `0600`。
+纳入 Git。远端文件设置为 `0600`，控制机文件权限由 `game.sh` 的
+`umask 077` 保证。

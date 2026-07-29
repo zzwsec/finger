@@ -1,7 +1,6 @@
 domain: /p9
 current_ip: ${current_ip}
 game_port: ${game_port}
-thread: 8
 time_zone: 8
 extern_ip: 'CHANGE_ME_EXTERN_IP'
 
@@ -18,6 +17,5 @@ game_db:
 
 group_id: ${group_id}
 area_id: ${server_num}
-game_index_num: ${game_index_num}
 app_binary: p9_app_server
-open_time: "{{ lookup('pipe', 'date +\"%Y-%m-%dT%H:%M:%S\"') }}"
+open_time: "{{ lookup('pipe', 'date +\"%Y-%m-%dT%H:01:00\"') }}"

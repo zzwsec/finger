@@ -30,10 +30,3 @@
     dest: "{{ playbook_dir }}/roles/game/files/install.tar.gz"
     flat: true
   become: false
-
-- name: 保护控制机上的安装包
-  file:
-    path: "{{ playbook_dir }}/roles/game/files/install.tar.gz"
-    mode: '0600'
-  delegate_to: localhost
-  become: false

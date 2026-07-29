@@ -153,7 +153,6 @@ current_ip=$(get_ip "$server_num")
 group_id=$(get_group_id "$current_ip")
 index=$(get_index "$current_ip" "$server_num")
 game_port=$((game_port_start + index * 1000))
-game_index_num=$((index + 1))
 
 # 获取前一个服务编号（用于获取更新包）
 pre_server_num=$((server_num - 1))
@@ -166,7 +165,6 @@ echo "  IP:     $current_ip"
 echo "  端口:   $game_port"
 echo "  编号:   $server_num"
 echo "  组号:   $group_id"
-echo "  实例:   $game_index_num"
 echo "  启动:   $flag"
 echo "========================================"
 read -r -p "确认以上配置，按任意键继续..."
@@ -181,7 +179,7 @@ fi
 
 # 生成配置文件
 _info_msg "正在生成配置文件"
-export current_ip game_port server_num group_id game_index_num
+export current_ip game_port server_num group_id
 envsubst < "${gameVars}/main.yml.tmp" > "${gameVars}/main.yml" || error_exit "配置文件生成失败" 9
 
 # 执行安装

@@ -1,9 +1,9 @@
 -- utf-8
 
 -- 域
-domain = {{ domain | to_json }}
+domain = "{{ domain }}"
 -- 本地地址
-ip = {{ current_ip | to_json }}
+ip = "{{ current_ip }}"
 -- 端口
 port = {{ game_port }}
 -- 地址
@@ -11,7 +11,7 @@ server = string.format("tcp://0.0.0.0:%d", port)
 -- 互联互通
 cluster = string.format("tcp://%s:%d", ip, port)
 -- 线程数
-thread = {{ thread }}
+thread = 8
 -- 日志配置
 logger = "etc/server.log.ini"
 -- 时间偏移量
@@ -20,19 +20,19 @@ time_offset = 0
 time_zone = {{ time_zone }}
 
 -- 外部地址
-extern_ip = {{ extern_ip | to_json }}
+extern_ip = "{{ extern_ip }}"
 -- 服务发现
 discovers = {
 {% for item in discovers %}
-    {{ ("tcp://" ~ item.host ~ ":" ~ item.port) | to_json }},
+    "tcp://{{ item.host }}:{{ item.port }}",
 {% endfor %}
 }
 
 game_db = {
-    ["host"] = {{ game_db.host | to_json }},
-    ["user"] = {{ game_db.user | to_json }},
+    ["host"] = "{{ game_db.host }}",
+    ["user"] = "{{ game_db.user }}",
     ["password"] = {{ game_db.password | to_json }},
-    ["name"] = {{ game_db.name | to_json }},
+    ["name"] = "{{ game_db.name }}",
 }
 
 -- 组编号
@@ -41,7 +41,7 @@ group_id = {{ group_id }}
 area_id = {{ area_id }}
 
 -- 游戏服务
-game_index_num = {{ game_index_num }}
+game_index_num = 1
 
 require("etc/services")
 require("etc/zones")
