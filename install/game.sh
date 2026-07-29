@@ -2,7 +2,7 @@
 
 # 时间: 2026/7/30
 
-set -Eeuo pipefail
+set -o nounset
 umask 077
 
 # 颜色定义
@@ -31,16 +31,6 @@ cleanup() {
     fi
 }
 
-# 捕获未被显式处理的异常
-on_error() {
-    local exit_code=$?
-    local line_no=${BASH_LINENO[0]:-unknown}
-    trap - ERR
-    _err_msg "脚本在第 ${line_no} 行发生未处理错误，退出码: ${exit_code}"
-    exit "$exit_code"
-}
-
-trap on_error ERR
 trap cleanup EXIT
 
 # 错误处理
