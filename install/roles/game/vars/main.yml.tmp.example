@@ -15,7 +15,8 @@ game_db:
   password: 'CHANGE_ME_DB_PASSWORD'
   name: p9_sg_game_${server_num}
 
-group_id: ${group_id}
+group_id: 1
+game_index_num: 1
 area_id: ${server_num}
 app_binary: p9_app_server
 open_time: "{{ lookup('pipe', 'date +\"%Y-%m-%dT%H:01:00\"') }}"

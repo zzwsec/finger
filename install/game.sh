@@ -69,16 +69,6 @@ get_ip() {
     echo "$ip"
 }
 
-# 通过 IP 获取 group_id
-get_group_id() {
-    local target_ip=$1
-    local group_id
-    group_id=$(awk -v target="$target_ip" 'NF > 0 && $1 == target {print $NF; exit}' "$gameListFile")
-    [[ -z "$group_id" ]] && error_exit "未找到 IP $target_ip 对应的 group_id" 6
-    [[ "$group_id" =~ ^[0-9]+$ ]] || error_exit "game_list.txt 中的 group_id 无效: $group_id" 6
-    echo "$group_id"
-}
-
 # 获取服务编号在主机中的偏移量（用于端口计算）
 get_index() {
     local target_ip=$1
@@ -150,7 +140,6 @@ fi
 
 # 获取配置信息
 current_ip=$(get_ip "$server_num")
-group_id=$(get_group_id "$current_ip")
 index=$(get_index "$current_ip" "$server_num")
 game_port=$((game_port_start + index * 1000))
 
@@ -164,7 +153,6 @@ echo "========================================"
 echo "  IP:     $current_ip"
 echo "  端口:   $game_port"
 echo "  编号:   $server_num"
-echo "  组号:   $group_id"
 echo "  启动:   $flag"
 echo "========================================"
 read -r -p "确认以上配置，按任意键继续..."
@@ -179,7 +167,7 @@ fi
 
 # 生成配置文件
 _info_msg "正在生成配置文件"
-export current_ip game_port server_num group_id
+export current_ip game_port server_num
 envsubst < "${gameVars}/main.yml.tmp" > "${gameVars}/main.yml" || error_exit "配置文件生成失败" 9
 
 # 执行安装
