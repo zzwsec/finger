@@ -1,0 +1,24 @@
+[Unit]
+Description=Game {{ area_id }} Server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/data/game{{ area_id }}
+ExecStart=/data/game{{ area_id }}/{{ app_binary }}
+ExecReload=/bin/kill -USR1 ${MAINPID}
+ExecStop=-/bin/kill -USR2 ${MAINPID}
+ExecStop=/bin/sleep 20
+KillMode=control-group
+KillSignal=SIGKILL
+TimeoutStopSec=21s
+SuccessExitStatus=SIGKILL
+Restart=always
+RestartSec=2s
+LimitNOFILE=1048576
+LimitNPROC=1048576
+LimitCORE=infinity
+
+[Install]
+WantedBy=multi-user.target

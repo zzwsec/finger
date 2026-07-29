@@ -1,28 +1,39 @@
-- name: 1-1 如果 /data/update 不存在则创建
+- name: 校验源游戏目录
+  stat:
+    path: "/data/game{{ area_id }}"
+  register: source_game_dir
+  failed_when: >
+    not (source_game_dir.stat.exists | default(false)) or
+    not (source_game_dir.stat.isdir | default(false))
+
+- name: 创建远端打包目录
   file:
     path: /data/update
     state: directory
     mode: '0755'
 
-- name: 1-2 删除已有的 install.tar.gz
-  file:
-     path: /data/update/install.tar.gz
-     state: absent
-
-- name: 1-3 添加解压包
+- name: 打包 P9 游戏文件
   archive:
     format: gz
     path:
-      - "/data/server{{ area_id }}/game/p8_app_server"
-      - "/data/server{{ area_id }}/game/server.sh"
-      - "/data/server{{ area_id }}/game/proto"
-      - "/data/server{{ area_id }}/game/etc"
-      - "/data/server{{ area_id }}/game/lua"
+      - "/data/game{{ area_id }}/{{ app_binary | default('p9_app_server') }}"
+      - "/data/game{{ area_id }}/proto"
+      - "/data/game{{ area_id }}/etc"
+      - "/data/game{{ area_id }}/lua_lib"
     dest: /data/update/install.tar.gz
-    mode: '0644'
+    owner: ubuntu
+    mode: '0600'
 
-- name: 1-4 发送到ansible中
+- name: 获取安装包到控制机
   fetch:
     src: /data/update/install.tar.gz
     dest: "{{ playbook_dir }}/roles/game/files/install.tar.gz"
-    flat: yes
+    flat: true
+  become: false
+
+- name: 保护控制机上的安装包
+  file:
+    path: "{{ playbook_dir }}/roles/game/files/install.tar.gz"
+    mode: '0600'
+  delegate_to: localhost
+  become: false

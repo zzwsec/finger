@@ -1,2 +1,6 @@
 .vscode/
 .idea/
+/要求.txt
+/install/roles/game/files/install.tar.gz
+/install/roles/game/vars/main.yml
+/install/roles/game/vars/main.yml.tmp

@@ -1,9 +1,9 @@
 #!/bin/bash
 
-# 时间: 2025/3/11
-# 功能: 游戏服务安装脚本，通过 Ansible 自动部署游戏服务
+# 时间: 2026/7/30
 
 set -o nounset
+umask 077
 
 # 颜色定义
 red='\033[91m'
@@ -17,10 +17,12 @@ _info_msg() { echo -e "\033[43m\033[1;37m提示${white} $1"; }
 
 # 路径定义
 script_dir=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
-game_port_start=3340
+export ANSIBLE_CONFIG="${script_dir}/ansible.cfg"
+game_port_start=3349
 gameListFile="${script_dir}/install_list/game_list.txt"
 playbookFile="${script_dir}/example.yaml"
 gameVars="${script_dir}/roles/game/vars"
+gameVarsExample="${gameVars}/main.yml.tmp.example"
 
 # 清理临时配置文件
 cleanup() {
@@ -116,7 +118,14 @@ run_playbook() {
 
 # 环境检查
 check_env() {
-    [[ ! -f "${gameVars}/main.yml.tmp" ]] && error_exit "模板文件 main.yml.tmp 不存在" 8
+    if [[ ! -f "${gameVars}/main.yml.tmp" ]]; then
+        error_exit "生产配置不存在，请先执行: cp ${gameVarsExample} ${gameVars}/main.yml.tmp" 8
+    fi
+    if grep -q "CHANGE_ME_" "${gameVars}/main.yml.tmp"; then
+        error_exit "main.yml.tmp 仍包含 CHANGE_ME_ 占位符，请填写生产配置" 8
+    fi
+    config_mode=$(stat -c '%a' "${gameVars}/main.yml.tmp") || error_exit "无法检查 main.yml.tmp 权限" 8
+    [[ "$config_mode" == "600" ]] || error_exit "main.yml.tmp 权限必须为 600，请执行 chmod 600 ${gameVars}/main.yml.tmp" 8
     [[ ! -f "$gameListFile" ]] && error_exit "文件 $gameListFile 不存在" 2
     [[ ! -f "$playbookFile" ]] && error_exit "文件 $playbookFile 不存在" 3
     command -v ansible-playbook &>/dev/null || error_exit "ansible-playbook 未安装" 4
@@ -144,6 +153,7 @@ current_ip=$(get_ip "$server_num")
 group_id=$(get_group_id "$current_ip")
 index=$(get_index "$current_ip" "$server_num")
 game_port=$((game_port_start + index * 1000))
+game_index_num=$((index + 1))
 
 # 获取前一个服务编号（用于获取更新包）
 pre_server_num=$((server_num - 1))
@@ -156,6 +166,7 @@ echo "  IP:     $current_ip"
 echo "  端口:   $game_port"
 echo "  编号:   $server_num"
 echo "  组号:   $group_id"
+echo "  实例:   $game_index_num"
 echo "  启动:   $flag"
 echo "========================================"
 read -r -p "确认以上配置，按任意键继续..."
@@ -170,7 +181,7 @@ fi
 
 # 生成配置文件
 _info_msg "正在生成配置文件"
-export current_ip game_port server_num group_id
+export current_ip game_port server_num group_id game_index_num
 envsubst < "${gameVars}/main.yml.tmp" > "${gameVars}/main.yml" || error_exit "配置文件生成失败" 9
 
 # 执行安装

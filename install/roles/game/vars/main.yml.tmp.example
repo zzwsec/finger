@@ -1,0 +1,23 @@
+domain: /p9
+current_ip: ${current_ip}
+game_port: ${game_port}
+thread: 8
+time_zone: 8
+extern_ip: 'CHANGE_ME_EXTERN_IP'
+
+discovers:
+  - { host: 'CHANGE_ME_DISCOVERY_IP', port: 2881 }
+  - { host: 'CHANGE_ME_DISCOVERY_IP', port: 2882 }
+  - { host: 'CHANGE_ME_DISCOVERY_IP', port: 2883 }
+
+game_db:
+  host: 'CHANGE_ME_DB_HOST'
+  user: root
+  password: 'CHANGE_ME_DB_PASSWORD'
+  name: p9_sg_game_${server_num}
+
+group_id: ${group_id}
+area_id: ${server_num}
+game_index_num: ${game_index_num}
+app_binary: p9_app_server
+open_time: "{{ lookup('pipe', 'date +\"%Y-%m-%dT%H:%M:%S\"') }}"

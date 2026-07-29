@@ -1,9 +1,9 @@
-﻿-- utf-8
+-- utf-8
 
 -- 域
-domain = "{{ domain }}"
+domain = {{ domain | to_json }}
 -- 本地地址
-ip = "{{ current_ip }}"
+ip = {{ current_ip | to_json }}
 -- 端口
 port = {{ game_port }}
 -- 地址
@@ -17,20 +17,22 @@ logger = "etc/server.log.ini"
 -- 时间偏移量
 time_offset = 0
 -- 时区
-time_zone = 8
+time_zone = {{ time_zone }}
 
+-- 外部地址
+extern_ip = {{ extern_ip | to_json }}
 -- 服务发现
 discovers = {
 {% for item in discovers %}
-    "tcp://{{item.zkip}}:{{item.zkport}}",
+    {{ ("tcp://" ~ item.host ~ ":" ~ item.port) | to_json }},
 {% endfor %}
 }
 
 game_db = {
-    ["name"] = "{{ game_db.db_name }}",
-    ["host"] = "{{ game_db.db_host }}",
-    ["user"] = "{{ game_db.db_user }}",
-    ["password"] = "{{ game_db.db_password }}",
+    ["host"] = {{ game_db.host | to_json }},
+    ["user"] = {{ game_db.user | to_json }},
+    ["password"] = {{ game_db.password | to_json }},
+    ["name"] = {{ game_db.name | to_json }},
 }
 
 -- 组编号
@@ -40,8 +42,6 @@ area_id = {{ area_id }}
 
 -- 游戏服务
 game_index_num = {{ game_index_num }}
--- kingnet回调地址
-pay_notify_url = "{{ pay_notify_url }}"
 
 require("etc/services")
 require("etc/zones")
