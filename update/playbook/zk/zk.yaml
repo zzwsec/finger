@@ -1,19 +1,44 @@
-- name: 复制文件
-  shell: "command cp -rf /data/update/app/* /data/center/{{ zk_item }}/"
+- name: 检查 {{ zk_item }}.service unit 是否存在
+  command:
+    argv:
+      - systemctl
+      - show
+      - --property=LoadState
+      - --value
+      - "{{ zk_item }}.service"
+  register: zk_unit_load
+  changed_when: false
+  failed_when: zk_unit_load.rc != 0 or (zk_unit_load.stdout | trim) != "loaded"
   tags:
     - alldo
 
-- name: 过滤 zk 进程
-  shell: pgrep -af '/data/center/{{ zk_item }}/p8_app_server'
-  register: zk_stat
-  ignore_errors: yes
+- name: 检查 {{ zk_item }}.service 是否正在运行
+  command:
+    argv:
+      - systemctl
+      - is-active
+      - --quiet
+      - "{{ zk_item }}.service"
+  register: zk_unit_active
+  changed_when: false
+  failed_when: zk_unit_active.rc not in [0, 3]
   tags:
     - alldo
 
-- name: Reload zk 进程（若存在）
-  shell: "./server.sh reload && sleep 1 && ./server.sh reload"
-  args:
-    chdir: "/data/center/{{ zk_item }}"
-  when: zk_stat.rc == 0
+- name: 复制更新文件到 {{ zk_item }}
+  shell: "command cp -rf /data/update/app/* /data/zk/{{ zk_item }}/"
+  tags:
+    - alldo
+
+- name: 提示跳过未运行的 {{ zk_item }}.service
+  debug:
+    msg: "{{ zk_item }}.service 当前未运行，已更新文件但跳过 reload"
+  when: zk_unit_active.rc != 0
+  tags:
+    - alldo
+
+- name: Reload {{ zk_item }}.service
+  shell: "systemctl reload {{ zk_item }}.service && sleep 1 && systemctl reload {{ zk_item }}.service"
+  when: zk_unit_active.rc == 0
   tags:
     - alldo

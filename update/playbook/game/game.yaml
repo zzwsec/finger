@@ -1,23 +1,60 @@
-- name: 复制文件
-  shell: "command cp -rf /data/update/app/* /data/{{ game_item }}/game/"
-  tags:
-    - increment
-    - alldo
-
-- name: 过滤 {{ game_item }} 进程
-  shell: pgrep -af '/data/{{ game_item }}/game/p8_app_server'
-  register: game_stat
-  ignore_errors: yes
+- name: 检查 {{ game_item }}.service unit 是否存在
+  command:
+    argv:
+      - systemctl
+      - show
+      - --property=LoadState
+      - --value
+      - "{{ game_item }}.service"
+  register: game_unit_load
+  changed_when: false
+  failed_when: game_unit_load.rc != 0 or (game_unit_load.stdout | trim) != "loaded"
   tags:
     - groups
     - increment
     - alldo
 
-- name: Reload game 进程（若存在）
-  shell: "./server.sh reload"
-  args:
-    chdir: "/data/{{ game_item }}/game/"
-  when: game_stat.rc == 0
+- name: 检查 {{ game_item }}.service 是否正在运行
+  command:
+    argv:
+      - systemctl
+      - is-active
+      - --quiet
+      - "{{ game_item }}.service"
+  register: game_unit_active
+  changed_when: false
+  failed_when: game_unit_active.rc not in [0, 3]
+  tags:
+    - groups
+    - increment
+    - alldo
+
+- name: 分发 groups.lua 到 {{ game_item }}
+  copy:
+    src: "{{ playbook_dir }}/../../file/groups.lua"
+    dest: "/data/{{ game_item }}/etc/groups.lua"
+    mode: "0644"
+  tags:
+    - groups
+
+- name: 复制更新文件到 {{ game_item }}
+  shell: "command cp -rf /data/update/app/* /data/{{ game_item }}/"
+  tags:
+    - increment
+    - alldo
+
+- name: 提示跳过未运行的 {{ game_item }}.service
+  debug:
+    msg: "{{ game_item }}.service 当前未运行，已更新文件但跳过 reload"
+  when: game_unit_active.rc != 0
+  tags:
+    - groups
+    - increment
+    - alldo
+
+- name: Reload {{ game_item }}.service
+  shell: "systemctl reload {{ game_item }}.service && sleep 1 && systemctl reload {{ game_item }}.service"
+  when: game_unit_active.rc == 0
   tags:
     - groups
     - increment

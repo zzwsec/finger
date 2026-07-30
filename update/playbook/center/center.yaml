@@ -1,0 +1,44 @@
+- name: 检查 {{ center_item }}.service unit 是否存在
+  command:
+    argv:
+      - systemctl
+      - show
+      - --property=LoadState
+      - --value
+      - "{{ center_item }}.service"
+  register: center_unit_load
+  changed_when: false
+  failed_when: center_unit_load.rc != 0 or (center_unit_load.stdout | trim) != "loaded"
+  tags:
+    - alldo
+
+- name: 检查 {{ center_item }}.service 是否正在运行
+  command:
+    argv:
+      - systemctl
+      - is-active
+      - --quiet
+      - "{{ center_item }}.service"
+  register: center_unit_active
+  changed_when: false
+  failed_when: center_unit_active.rc not in [0, 3]
+  tags:
+    - alldo
+
+- name: 复制更新文件到 {{ center_item }}
+  shell: "command cp -rf /data/update/app/* /data/{{ center_item }}/"
+  tags:
+    - alldo
+
+- name: 提示跳过未运行的 {{ center_item }}.service
+  debug:
+    msg: "{{ center_item }}.service 当前未运行，已更新文件但跳过 reload"
+  when: center_unit_active.rc != 0
+  tags:
+    - alldo
+
+- name: Reload {{ center_item }}.service
+  shell: "systemctl reload {{ center_item }}.service && sleep 1 && systemctl reload {{ center_item }}.service"
+  when: center_unit_active.rc == 0
+  tags:
+    - alldo

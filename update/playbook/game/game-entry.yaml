@@ -1,7 +1,7 @@
 - hosts: game
   tasks:
     - name: 检查 game 目录
-      shell: "find /data -maxdepth 1 -type d -name 'server[0-9]*' -printf '%f\n'"
+      shell: "find /data/ -mindepth 1 -maxdepth 1 -type d -regex '.*/game[0-9]+' -printf '%f\n'"
       register: game_list
       changed_when: false
       tags:
@@ -9,13 +9,15 @@
         - increment
         - alldo
 
-    - name: 分发 groups.lua 到 game
-      copy:
-        src: "{{ playbook_dir }}/../../file/groups.lua"
-        dest: "/data/{{ item }}/game/etc/groups.lua"
-        mode: 0644
-      loop: "{{ game_list.stdout_lines }}"
-      tags: groups
+    - name: 确认至少存在一个 game 实例
+      assert:
+        that:
+          - game_list.stdout_lines | length > 0
+        fail_msg: "未在 /data 下发现 game[0-9]+ 实例目录"
+      tags:
+        - groups
+        - increment
+        - alldo
 
     - name: 分发increment.tar.gz压缩包
       copy:

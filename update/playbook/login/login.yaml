@@ -1,19 +1,44 @@
-- name: 复制文件
-  shell: "command cp -rf /data/update/app/* /data/server/{{ login_item }}/"
+- name: 检查 {{ login_item }}.service unit 是否存在
+  command:
+    argv:
+      - systemctl
+      - show
+      - --property=LoadState
+      - --value
+      - "{{ login_item }}.service"
+  register: login_unit_load
+  changed_when: false
+  failed_when: login_unit_load.rc != 0 or (login_unit_load.stdout | trim) != "loaded"
   tags:
     - alldo
 
-- name: 过滤 login 进程
-  shell: pgrep -af '/data/server/{{ login_item }}/p8_app_server'
-  register: login_stat
-  ignore_errors: yes
+- name: 检查 {{ login_item }}.service 是否正在运行
+  command:
+    argv:
+      - systemctl
+      - is-active
+      - --quiet
+      - "{{ login_item }}.service"
+  register: login_unit_active
+  changed_when: false
+  failed_when: login_unit_active.rc not in [0, 3]
   tags:
     - alldo
 
-- name: Reload login 进程（若存在）
-  shell: "./server.sh reload && sleep 1 && ./server.sh reload"
-  args:
-    chdir: "/data/server/{{ login_item }}"
-  when: login_stat.rc == 0
+- name: 复制更新文件到 {{ login_item }}
+  shell: "command cp -rf /data/update/app/* /data/{{ login_item }}/"
+  tags:
+    - alldo
+
+- name: 提示跳过未运行的 {{ login_item }}.service
+  debug:
+    msg: "{{ login_item }}.service 当前未运行，已更新文件但跳过 reload"
+  when: login_unit_active.rc != 0
+  tags:
+    - alldo
+
+- name: Reload {{ login_item }}.service
+  shell: "systemctl reload {{ login_item }}.service && sleep 1 && systemctl reload {{ login_item }}.service"
+  when: login_unit_active.rc == 0
   tags:
     - alldo

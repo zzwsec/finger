@@ -1,12 +1,20 @@
-- hosts: global
+- hosts: center
   tasks:
-    - name: 检查 global 目录
-      shell: "find /data/center/ -maxdepth 1 -type d -name 'global*' -printf '%f\n'"
-      register: global_list
+    - name: 检查 center 目录
+      shell: "find /data/ -mindepth 1 -maxdepth 1 -type d -name 'center*' -printf '%f\n'"
+      register: center_list
       changed_when: false
       tags:
         - alldo
-      
+
+    - name: 确认至少存在一个 center 实例
+      assert:
+        that:
+          - center_list.stdout_lines | length > 0
+        fail_msg: "未在 /data 下发现 center 实例目录"
+      tags:
+        - alldo
+
     - name: 分发更新压缩包
       copy:
         src: "{{ playbook_dir }}/../../file/alldo.tar.gz"
@@ -29,10 +37,10 @@
       tags:
         - alldo
 
-    - name: 动态处理 global 实例
-      include_tasks: global.yaml
-      loop: "{{ global_list.stdout_lines }}"
+    - name: 动态处理 center 实例
+      include_tasks: center.yaml
+      loop: "{{ center_list.stdout_lines }}"
       loop_control:
-        loop_var: global_item
+        loop_var: center_item
       tags:
         - alldo

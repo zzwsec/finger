@@ -1,9 +1,17 @@
 - hosts: zk
   tasks:
     - name: 检查 zk 目录
-      shell: "find /data/center -maxdepth 1 -type d -name 'zk*' -printf '%f\n'"
+      shell: "find /data/zk -mindepth 1 -maxdepth 1 -type d -regex '.*/zk[0-9]+' -printf '%f\n'"
       register: zk_list
       changed_when: false
+      tags:
+        - alldo
+
+    - name: 确认至少存在一个 zk 实例
+      assert:
+        that:
+          - zk_list.stdout_lines | length > 0
+        fail_msg: "未在 /data/zk 下发现 zk[0-9]+ 实例目录"
       tags:
         - alldo
 

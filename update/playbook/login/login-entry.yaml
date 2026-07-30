@@ -1,9 +1,17 @@
 - hosts: login
   tasks:
     - name: 检查 login 目录
-      shell: "find /data/server -maxdepth 1 -type d -name 'login*' -printf '%f\n'"
+      shell: "find /data/ -mindepth 1 -maxdepth 1 -type d -name 'login*' -printf '%f\n'"
       register: login_list
       changed_when: false
+      tags:
+        - alldo
+
+    - name: 确认至少存在一个 login 实例
+      assert:
+        that:
+          - login_list.stdout_lines | length > 0
+        fail_msg: "未在 /data 下发现 login 实例目录"
       tags:
         - alldo
 

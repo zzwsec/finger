@@ -1,9 +1,31 @@
 #!/bin/bash
 
-# 时间: 2025/3/27
+# 时间: 2026/7/30
 err_exit() {
     echo "$1" >&2
     exit "$2"
+}
+
+validate_archive() {
+    local archive_path="$1"
+    local archive_entries
+    local entry
+    local normalized_entry
+
+    archive_entries=$(tar -tzf "$archive_path") || err_exit "无法读取压缩包: $archive_path" 2
+    [[ -z "$archive_entries" ]] && err_exit "压缩包为空: $archive_path" 2
+
+    while IFS= read -r entry; do
+        normalized_entry="${entry#./}"
+        case "$normalized_entry" in
+            app|app/*) ;;
+            *) err_exit "$archive_path 包含 app 目录之外的内容: $entry" 2 ;;
+        esac
+
+        case "/$normalized_entry/" in
+            *"/../"*) err_exit "$archive_path 包含不安全路径: $entry" 2 ;;
+        esac
+    done <<< "$archive_entries"
 }
 
 print_info_and_execute_playbook() {
@@ -36,51 +58,50 @@ update_option() {
 }
 
 update_group_lua() {
-    update_option "cross" "playbook/cross/cross-entry.yaml" "groups"
     update_option "game" "playbook/game/game-entry.yaml" "groups"
 }
 
 update_all() {
-    update_option "cross" "playbook/cross/cross-entry.yaml" "alldo"
     update_option "game" "playbook/game/game-entry.yaml" "alldo"
-    update_option "gm" "playbook/gm/gm-entry.yaml" "alldo"
-    update_option "log" "playbook/log/log-entry.yaml" "alldo"
     update_option "gate" "playbook/gate/gate-entry.yaml" "alldo"
     update_option "login" "playbook/login/login-entry.yaml" "alldo"
     update_option "zk" "playbook/zk/zk-entry.yaml" "alldo"
-    update_option "global" "playbook/global/global-entry.yaml" "alldo"
+    update_option "center" "playbook/center/center-entry.yaml" "alldo"
 }
 
 update_increment() {
-    update_option "cross" "playbook/cross/cross-entry.yaml" "increment"
     update_option "game" "playbook/game/game-entry.yaml" "increment"
-    update_option "gm" "playbook/gm/gm-entry.yaml" "increment"
-    update_option "log" "playbook/log/log-entry.yaml" "increment"
 }
 
+
+# ========== 主流程 ==========
+
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd) || err_exit "无法确定脚本目录" 1
+cd "$script_dir" || err_exit "无法进入脚本目录: $script_dir" 1
 
 # 检查 ./file/ 目录是否存在
 [[ ! -d ./file/ ]] && err_exit "错误：目录 ./file/ 不存在" 1
 
-# 检查 ansible 是否安装
-command -v ansible &>/dev/null || err_exit "错误：ansible 未安装" 1
+# 检查 ansible-playbook 是否安装
+command -v ansible-playbook &>/dev/null || err_exit "错误：ansible-playbook 未安装" 1
 
-# 统计文件数量
-group_stat=$(find ./file/ -name "groups.lua" -type f | wc -l)
-increment_stat=$(find ./file/ -name "increment.tar.gz" -type f | wc -l)
-all_stat=$(find ./file/ -name "alldo.tar.gz" -type f | wc -l)
+# 三种更新文件必须且只能存在一个
+update_file_count=0
+[[ -f ./file/groups.lua ]] && ((update_file_count += 1))
+[[ -f ./file/increment.tar.gz ]] && ((update_file_count += 1))
+[[ -f ./file/alldo.tar.gz ]] && ((update_file_count += 1))
+
+if [[ "$update_file_count" -ne 1 ]]; then
+    err_exit "groups.lua、increment.tar.gz、alldo.tar.gz 必须且只能存在一个，请检查 file 目录" 2
+fi
 
 # 根据文件存在情况执行相应操作
-if [[ "$group_stat" -eq 1 && "$increment_stat" -eq 0 && "$all_stat" -eq 0 ]]; then
+if [[ -f ./file/groups.lua ]]; then
     print_info_and_execute_playbook "group"
-elif [[ "$group_stat" -eq 0 && "$increment_stat" -eq 1 && "$all_stat" -eq 0 ]]; then
-    tar tf ./file/increment.tar.gz | sed -n '1p' | grep -q "app/" || err_exit "increment.tar.gz 未包含 app 目录" 2
+elif [[ -f ./file/increment.tar.gz ]]; then
+    validate_archive ./file/increment.tar.gz
     print_info_and_execute_playbook "increment"
-elif [[ "$group_stat" -eq 0 && "$increment_stat" -eq 0 && "$all_stat" -eq 1 ]]; then
-    tar tf ./file/alldo.tar.gz | sed -n '1p' | grep -q "app/" || err_exit "alldo.tar.gz 未包含 app 目录" 2
+elif [[ -f ./file/alldo.tar.gz ]]; then
+    validate_archive ./file/alldo.tar.gz
     print_info_and_execute_playbook "all"
-elif [[ "$group_stat" -eq 1 && "$increment_stat" -eq 1  && "$all_stat" -eq 1 ]]; then
-    err_exit "groups.lua 和 increment.tar.gz 和 alldo.tar.gz 同时存在，请删除或移动其中一个" 2
-else
-    err_exit "groups.lua 或 increment.tar.gz 或 alldo.tar.gz 不存在，请检查 file 目录" 2
 fi

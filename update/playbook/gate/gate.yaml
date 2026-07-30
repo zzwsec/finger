@@ -1,19 +1,44 @@
-- name: 复制文件
-  shell: "command cp -rf /data/update/app/* /data/server/{{ gate_item }}/"
+- name: 检查 {{ gate_item }}.service unit 是否存在
+  command:
+    argv:
+      - systemctl
+      - show
+      - --property=LoadState
+      - --value
+      - "{{ gate_item }}.service"
+  register: gate_unit_load
+  changed_when: false
+  failed_when: gate_unit_load.rc != 0 or (gate_unit_load.stdout | trim) != "loaded"
   tags:
     - alldo
 
-- name: 过滤 gate 进程
-  shell: pgrep -af '/data/server/{{ gate_item }}/p8_app_server'
-  register: gate_stat
-  ignore_errors: yes
+- name: 检查 {{ gate_item }}.service 是否正在运行
+  command:
+    argv:
+      - systemctl
+      - is-active
+      - --quiet
+      - "{{ gate_item }}.service"
+  register: gate_unit_active
+  changed_when: false
+  failed_when: gate_unit_active.rc not in [0, 3]
   tags:
     - alldo
 
-- name: Reload gate 进程（若存在）
-  shell: "./server.sh reload && sleep 1 && ./server.sh reload"
-  args:
-    chdir: "/data/server/{{ gate_item }}"
-  when: gate_stat.rc == 0
+- name: 复制更新文件到 {{ gate_item }}
+  shell: "command cp -rf /data/update/app/* /data/{{ gate_item }}/"
+  tags:
+    - alldo
+
+- name: 提示跳过未运行的 {{ gate_item }}.service
+  debug:
+    msg: "{{ gate_item }}.service 当前未运行，已更新文件但跳过 reload"
+  when: gate_unit_active.rc != 0
+  tags:
+    - alldo
+
+- name: Reload {{ gate_item }}.service
+  shell: "systemctl reload {{ gate_item }}.service && sleep 1 && systemctl reload {{ gate_item }}.service"
+  when: gate_unit_active.rc == 0
   tags:
     - alldo
