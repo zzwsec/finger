@@ -1,18 +1,27 @@
 - hosts: login
   tasks:
-    - name: 检查 login 目录
-      shell: "find /data/server/ -maxdepth 1 -type d -name 'login*' -printf '%f\n'"
-      register: login_list
+    - name: 查找 login 实例
+      shell: "find /data/ -mindepth 1 -maxdepth 1 -type d -name 'login*' -printf '%p\n'"
+      register: instance_list
       changed_when: false
       tags:
-        - stop
         - start
+        - stop
 
-    - name: 动态处理 login 实例
-      include_tasks: login.yaml
-      loop: "{{ login_list.stdout_lines }}"
-      loop_control:
-        loop_var: login_item
+    - name: 确认至少存在一个 login 实例
+      assert:
+        that:
+          - instance_list.stdout_lines | length > 0
+        fail_msg: "未在 /data 下发现 login 实例目录"
       tags:
-        - stop
         - start
+        - stop
+
+    - name: 依次处理 login 实例
+      include_tasks: ../common/systemd.yaml
+      loop: "{{ instance_list.stdout_lines }}"
+      loop_control:
+        loop_var: instance_path
+      tags:
+        - start
+        - stop

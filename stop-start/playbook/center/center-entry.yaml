@@ -1,23 +1,23 @@
-- hosts: game
+- hosts: center
   tasks:
-    - name: 查找 game 实例
-      shell: "find /data/ -mindepth 1 -maxdepth 1 -type d -regex '.*/game[0-9]+' -printf '%p\n'"
+    - name: 查找 center 实例
+      shell: "find /data/ -mindepth 1 -maxdepth 1 -type d -name 'center*' -printf '%p\n'"
       register: instance_list
       changed_when: false
       tags:
         - start
         - stop
 
-    - name: 确认至少存在一个 game 实例
+    - name: 确认至少存在一个 center 实例
       assert:
         that:
           - instance_list.stdout_lines | length > 0
-        fail_msg: "未在 /data 下发现 game[0-9]+ 实例目录"
+        fail_msg: "未在 /data 下发现 center 实例目录"
       tags:
         - start
         - stop
 
-    - name: 依次处理 game 实例
+    - name: 依次处理 center 实例
       include_tasks: ../common/systemd.yaml
       loop: "{{ instance_list.stdout_lines }}"
       loop_control:

@@ -1,18 +1,27 @@
 - hosts: gate
   tasks:
-    - name: 检查 gate 目录
-      shell: "find /data/server/ -maxdepth 1 -type d -name 'gate*' -printf '%f\n'"
-      register: gate_list
+    - name: 查找 gate 实例
+      shell: "find /data/ -mindepth 1 -maxdepth 1 -type d -name 'gate*' -printf '%p\n'"
+      register: instance_list
       changed_when: false
       tags:
         - start
         - stop
 
-    - name: 动态处理 gate 实例
-      include_tasks: gate.yaml
-      loop: "{{ gate_list.stdout_lines }}"
+    - name: 确认至少存在一个 gate 实例
+      assert:
+        that:
+          - instance_list.stdout_lines | length > 0
+        fail_msg: "未在 /data 下发现 gate 实例目录"
+      tags:
+        - start
+        - stop
+
+    - name: 依次处理 gate 实例
+      include_tasks: ../common/systemd.yaml
+      loop: "{{ instance_list.stdout_lines }}"
       loop_control:
-        loop_var: gate_item
+        loop_var: instance_path
       tags:
         - start
         - stop

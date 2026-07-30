@@ -1,0 +1,56 @@
+- name: 检查 {{ instance_path | basename }}.service unit 是否存在
+  command:
+    argv:
+      - systemctl
+      - show
+      - --property=LoadState
+      - --value
+      - "{{ instance_path | basename }}.service"
+  register: service_unit_load
+  changed_when: false
+  failed_when: service_unit_load.rc != 0 or (service_unit_load.stdout | trim) != "loaded"
+  tags:
+    - start
+    - stop
+
+- name: 启动 {{ instance_path | basename }}.service
+  systemd:
+    name: "{{ instance_path | basename }}.service"
+    state: started
+  tags:
+    - start
+
+- name: 等待 {{ instance_path | basename }}.service 进入 active
+  command:
+    argv:
+      - systemctl
+      - is-active
+      - --quiet
+      - "{{ instance_path | basename }}.service"
+  register: service_active
+  changed_when: false
+  retries: 10
+  delay: 2
+  until: service_active.rc == 0
+  tags:
+    - start
+
+- name: 停止 {{ instance_path | basename }}.service
+  systemd:
+    name: "{{ instance_path | basename }}.service"
+    state: stopped
+  tags:
+    - stop
+
+- name: 确认 {{ instance_path | basename }}.service 已停止
+  command:
+    argv:
+      - systemctl
+      - is-active
+      - --quiet
+      - "{{ instance_path | basename }}.service"
+  register: service_inactive
+  changed_when: false
+  failed_when: service_inactive.rc == 0
+  tags:
+    - stop

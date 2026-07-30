@@ -1,17 +1,19 @@
-[login]
-192.168.121.102
-[gate]
-192.168.121.102
+[center]
+center-01 ansible_host=10.46.96.254
+
 [game]
-192.168.121.102
-192.168.121.103
-[cross]
-192.168.121.102
-[gm]
-192.168.121.102
-[global]
-192.168.121.102
-[log]
-192.168.121.102
+gamenode-01 ansible_host=10.46.99.216
+gamenode-02 ansible_host=10.46.96.198
+gamenode-03 ansible_host=10.46.98.109
+
+[gate]
+gate-01 ansible_host=10.46.99.216
+
+[login]
+login-01 ansible_host=10.46.99.216
+
 [zk]
-192.168.121.102
+zk-01 ansible_host=10.46.96.254
+
+[all:vars]
+ansible_port=22

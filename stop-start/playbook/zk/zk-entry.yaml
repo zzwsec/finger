@@ -1,18 +1,27 @@
 - hosts: zk
   tasks:
-    - name: 检查 zk 目录
-      shell: "find /data/center/ -maxdepth 1 -type d -name 'zk*' -printf '%f\n'"
-      register: zk_list
+    - name: 查找 zk 实例
+      shell: "find /data/zk -mindepth 1 -maxdepth 1 -type d -regex '.*/zk[0-9]+' -printf '%p\n'"
+      register: instance_list
       changed_when: false
       tags:
-        - stop
         - start
+        - stop
 
-    - name: 动态处理 zk 实例
-      include_tasks: zk.yaml
-      loop: "{{ zk_list.stdout_lines }}"
-      loop_control:
-        loop_var: zk_item
+    - name: 确认至少存在一个 zk 实例
+      assert:
+        that:
+          - instance_list.stdout_lines | length > 0
+        fail_msg: "未在 /data/zk 下发现 zk[0-9]+ 实例目录"
       tags:
-        - stop
         - start
+        - stop
+
+    - name: 依次处理 zk 实例
+      include_tasks: ../common/systemd.yaml
+      loop: "{{ instance_list.stdout_lines }}"
+      loop_control:
+        loop_var: instance_path
+      tags:
+        - start
+        - stop
