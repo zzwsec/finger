@@ -60,7 +60,7 @@
 - name: 修改 profile.lua 开服时间
   lineinfile:
     path: "/data/game{{ area_id }}/lua_lib/config/profile.lua"
-    regexp: "^local open_server_time[[:space:]]*="
+    regexp: '^local[ \t]+open_server_time[ \t]*='
     line: 'local open_server_time = "{{ open_time }}"'
     state: present
   tags:

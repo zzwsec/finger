@@ -63,7 +63,7 @@ bash game.sh <服务编号> start
 
 ## 配置
 
-仓库不保存生产公网 IP 和数据库密码。首次克隆后，从无敏感信息的示例创建
+仓库不保存数据库密码。首次克隆后，从无敏感信息的示例创建
 仅存在于生产机的私有配置：
 
 ```bash
@@ -74,7 +74,6 @@ vim roles/game/vars/main.yml.tmp
 
 替换以下占位符：
 
-- `CHANGE_ME_EXTERN_IP`：游戏公网 IP
 - `CHANGE_ME_DISCOVERY_IP`：服务发现地址
 - `CHANGE_ME_DB_HOST`：数据库地址
 - `CHANGE_ME_DB_PASSWORD`：数据库密码

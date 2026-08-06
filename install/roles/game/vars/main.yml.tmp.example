@@ -2,7 +2,6 @@ domain: /p9
 current_ip: ${current_ip}
 game_port: ${game_port}
 time_zone: 8
-extern_ip: 'CHANGE_ME_EXTERN_IP'
 
 discovers:
   - { host: 'CHANGE_ME_DISCOVERY_IP', port: 2881 }
