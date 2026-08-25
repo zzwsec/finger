@@ -1,0 +1,8 @@
+*.cfg text eol=lf
+*.md text eol=lf
+*.sh text eol=lf
+**/*.j2 text eol=lf
+**/*.tmp text eol=lf
+**/*.txt text eol=lf
+**/*.yaml text eol=lf
+**/*.yml text eol=lf
