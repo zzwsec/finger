@@ -1,0 +1,45 @@
+- hosts: "{{ service_group }}"
+  serial: "{{ batch_size | default('100%') }}"
+  tasks:
+    - name: 查找 {{ service_group }} unit
+      shell: "systemctl list-unit-files '{{ unit_pattern }}' --no-legend --no-pager | awk '{print $1}'"
+      register: unit_list
+      changed_when: false
+      failed_when: unit_list.stdout_lines | length == 0
+      tags:
+        - stop
+        - start
+
+    - name: 启动 {{ service_group }} unit
+      systemd:
+        name: "{{ item }}"
+        state: started
+      loop: "{{ unit_list.stdout_lines }}"
+      tags:
+        - start
+
+    - name: 停止 {{ service_group }} unit
+      systemd:
+        name: "{{ item }}"
+        state: stopped
+        no_block: true
+      loop: "{{ unit_list.stdout_lines }}"
+      tags:
+        - stop
+
+    - name: 等待 {{ service_group }} unit 停止完成
+      command:
+        argv:
+          - systemctl
+          - show
+          - --property=ActiveState
+          - --value
+          - "{{ item }}"
+      loop: "{{ unit_list.stdout_lines }}"
+      register: unit_state
+      changed_when: false
+      retries: 15
+      delay: 2
+      until: (unit_state.stdout | trim) == 'inactive'
+      tags:
+        - stop
