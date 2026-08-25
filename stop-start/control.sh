@@ -90,6 +90,12 @@ update_stop() {
     for node_name in login gate game cross gm global log zk; do
         update_option "$node_name" stop
     done
+
+    for node_name in login gate game cross gm global log zk; do
+        update_option "$node_name" clean
+    done
+
+    update_option all journal
 }
 
 update_option() {
@@ -97,6 +103,7 @@ update_option() {
     local flag=$2
     local log_file="${runlog_dir}/${flag}_${node_name}.log"
     local batch_size='100%'
+    local pattern="${unit_pattern[$node_name]-}"
 
     if [[ "$flag" == stop && -n "${save_on_stop[$node_name]-}" ]]; then
         batch_size=2
@@ -106,7 +113,7 @@ update_option() {
 
     ansible-playbook -i "$inventory_file" "$playbook_file" \
         -e "service_group=$node_name" \
-        -e "unit_pattern=${unit_pattern[$node_name]}" \
+        -e "unit_pattern=$pattern" \
         -e "batch_size=$batch_size" \
         -t "$flag" >> "$log_file" 2>&1 &
     local task_pid=$!

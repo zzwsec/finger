@@ -9,6 +9,7 @@
       tags:
         - stop
         - start
+        - clean
 
     - name: 启动 {{ service_group }} unit
       systemd:
@@ -27,6 +28,31 @@
       tags:
         - stop
 
+    - name: 获取并校验 {{ service_group }} unit 工作目录
+      command:
+        argv:
+          - systemctl
+          - show
+          - --property=WorkingDirectory
+          - --value
+          - "{{ item }}"
+      loop: "{{ unit_list.stdout_lines }}"
+      register: working_directories
+      changed_when: false
+      failed_when: not (working_directories.stdout | trim).startswith('/data/')
+      tags:
+        - clean
+
+    - name: 删除 {{ service_group }} 日志
+      file:
+        path: "{{ item.stdout | trim }}/log"
+        state: absent
+      loop: "{{ working_directories.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+      tags:
+        - clean
+
     - name: 等待 {{ service_group }} unit 停止完成
       command:
         argv:
@@ -43,3 +69,12 @@
       until: (unit_state.stdout | trim) == 'inactive'
       tags:
         - stop
+
+    - name: 轮转并清空 systemd journal
+      command:
+        argv:
+          - journalctl
+          - --rotate
+          - --vacuum-time=1s
+      tags:
+        - journal

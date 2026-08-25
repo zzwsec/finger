@@ -28,7 +28,7 @@ bash control.sh start
 启动顺序：
 
 ```text
-zk → log → global → cross → gm → game → gate → login
+zk → log → global → gm → cross → game → gate → login
 ```
 
 停止顺序：
@@ -39,6 +39,10 @@ login → gate → game → cross → gm → global → log → zk
 
 `game`、`cross`、`gm`、`global`、`log` 停止时每批处理两台主机。同一主机上的
 unit 使用 no-block 快速提交停止请求，当前批次全部停止后才会继续下一批。
+
+全部服务停止完成后，脚本读取各 unit 的 `WorkingDirectory`，删除工作目录下的
+`log`，然后轮转并清空各主机的 systemd journal。journal 清理作用于整台主机，
+不限于 P8 服务。单独停止某类服务时不执行日志清理。
 
 ## 单独启停
 
