@@ -1,0 +1,118 @@
+---
+- name: Install game service
+  hosts: "{{ target_hosts }}"
+  gather_facts: false
+  vars:
+    artifact_path: /tmp/open/game.tar.gz
+    game_directory: "/data/game{{ area_id }}"
+    game_unit: "game{{ area_id }}.service"
+    open_time: "{{ lookup('pipe', 'date +\"%Y-%m-%dT%H:01:00\"') }}"
+  tasks:
+    - name: Validate controller archive
+      stat:
+        path: "{{ artifact_path }}"
+      delegate_to: localhost
+      register: game_archive
+      failed_when: >-
+        not (game_archive.stat.exists | default(false)) or
+        (game_archive.stat.size | default(0) | int) == 0
+
+    - name: Inspect target directory
+      stat:
+        path: "{{ game_directory }}"
+      register: target_directory
+      changed_when: false
+      failed_when: target_directory.stat.exists | default(false)
+
+    - name: Inspect target unit
+      command:
+        argv:
+          - systemctl
+          - show
+          - --property=LoadState
+          - --value
+          - "{{ game_unit }}"
+      register: target_unit
+      changed_when: false
+      failed_when: >
+        target_unit.rc != 0 or
+        (target_unit.stdout | trim) != 'not-found'
+
+    - name: Create game directory
+      file:
+        path: "{{ game_directory }}"
+        state: directory
+        mode: '0755'
+
+    - name: Extract game archive
+      unarchive:
+        src: "{{ artifact_path }}"
+        dest: "{{ game_directory }}"
+
+    - name: Remove inherited runtime state
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ game_directory }}/lua/config/open_time.lua"
+        - "{{ game_directory }}/lua/config/last_time.db"
+        - "{{ game_directory }}/lua/config/last_time.db.gc"
+        - "{{ game_directory }}/lua/config/last_time.db.map"
+
+    - name: Render game application configuration
+      template:
+        src: templates/server.app.lua.j2
+        dest: "{{ game_directory }}/etc/server.app.lua"
+        mode: '0644'
+      no_log: true
+
+    - name: Render game zone configuration
+      template:
+        src: templates/zones.lua.j2
+        dest: "{{ game_directory }}/etc/zones.lua"
+        mode: '0644'
+
+    - name: Render game open time
+      template:
+        src: templates/open_time.lua.j2
+        dest: "{{ game_directory }}/lua/config/open_time.lua"
+        mode: '0644'
+
+    - name: Make game binary executable
+      file:
+        path: "{{ game_directory }}/{{ app_binary }}"
+        state: file
+        mode: '0755'
+
+    - name: Install game systemd unit
+      template:
+        src: templates/game.service.j2
+        dest: "/etc/systemd/system/{{ game_unit }}"
+        mode: '0644'
+      notify: reload systemd
+
+    - name: Reload systemd configuration now
+      meta: flush_handlers
+
+    - name: Enable and start game service
+      systemd:
+        name: "{{ game_unit }}"
+        enabled: true
+        state: started
+
+    - name: Wait for game service to become active
+      command:
+        argv:
+          - systemctl
+          - is-active
+          - --quiet
+          - "{{ game_unit }}"
+      register: game_service_status
+      changed_when: false
+      retries: 10
+      delay: 2
+      until: game_service_status.rc == 0
+  handlers:
+    - name: reload systemd
+      systemd:
+        daemon_reload: true

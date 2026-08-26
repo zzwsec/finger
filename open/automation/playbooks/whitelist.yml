@@ -1,0 +1,37 @@
+---
+- name: Remove game from whitelist
+  hosts: "{{ target_hosts }}"
+  gather_facts: false
+  tasks:
+    - name: Find login units
+      shell: "systemctl list-unit-files 'login*.service' --no-legend --no-pager | awk '{print $1}'"
+      register: login_units
+      changed_when: false
+
+    - name: Read login working directories
+      command:
+        argv:
+          - systemctl
+          - show
+          - --property=WorkingDirectory
+          - --value
+          - "{{ unit_name }}"
+      loop: "{{ login_units.stdout_lines }}"
+      loop_control:
+        loop_var: unit_name
+        label: "{{ unit_name }}"
+      register: login_working_directories
+      changed_when: false
+      failed_when: >
+        login_working_directories.rc != 0 or
+        not (login_working_directories.stdout | trim).startswith('/data/')
+
+    - name: Remove game ID from whitelist
+      lineinfile:
+        path: "{{ working_directory.stdout | trim }}/etc/white_list.txt"
+        line: "{{ area_id }}"
+        state: absent
+      loop: "{{ login_working_directories.results }}"
+      loop_control:
+        loop_var: working_directory
+        label: "{{ working_directory.unit_name }}"

@@ -1,0 +1,34 @@
+---
+- name: Reload login services
+  hosts: "{{ target_hosts }}"
+  gather_facts: false
+  tasks:
+    - name: Find login units
+      shell: "systemctl list-unit-files 'login*.service' --no-legend --no-pager | awk '{print $1}'"
+      register: login_units
+      changed_when: false
+
+    - name: Check login service state
+      command:
+        argv:
+          - systemctl
+          - is-active
+          - --quiet
+          - "{{ unit_name }}"
+      loop: "{{ login_units.stdout_lines }}"
+      loop_control:
+        loop_var: unit_name
+        label: "{{ unit_name }}"
+      register: login_unit_states
+      changed_when: false
+      failed_when: login_unit_states.rc not in [0, 3]
+
+    - name: Reload running login services
+      systemd:
+        name: "{{ unit_state.unit_name }}"
+        state: reloaded
+      loop: "{{ login_unit_states.results }}"
+      loop_control:
+        loop_var: unit_state
+        label: "{{ unit_state.unit_name }}"
+      when: unit_state.rc == 0

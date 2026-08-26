@@ -1,0 +1,52 @@
+---
+- name: Add game to creation limit
+  hosts: "{{ target_hosts }}"
+  gather_facts: false
+  tasks:
+    - name: Find login units
+      shell: "systemctl list-unit-files 'login*.service' --no-legend --no-pager | awk '{print $1}'"
+      register: login_units
+      changed_when: false
+
+    - name: Read login working directories
+      command:
+        argv:
+          - systemctl
+          - show
+          - --property=WorkingDirectory
+          - --value
+          - "{{ unit_name }}"
+      loop: "{{ login_units.stdout_lines }}"
+      loop_control:
+        loop_var: unit_name
+        label: "{{ unit_name }}"
+      register: login_working_directories
+      changed_when: false
+      failed_when: >
+        login_working_directories.rc != 0 or
+        not (login_working_directories.stdout | trim).startswith('/data/')
+
+    - name: Add game ID to creation limit
+      lineinfile:
+        path: "{{ working_directory.stdout | trim }}/etc/limit_create.txt"
+        line: "{{ area_id }}"
+        create: true
+        mode: '0644'
+      loop: "{{ login_working_directories.results }}"
+      loop_control:
+        loop_var: working_directory
+        label: "{{ working_directory.unit_name }}"
+
+    - name: Sort and deduplicate creation limit
+      command:
+        argv:
+          - sort
+          - -nu
+          - -o
+          - "{{ working_directory.stdout | trim }}/etc/limit_create.txt"
+          - "{{ working_directory.stdout | trim }}/etc/limit_create.txt"
+      loop: "{{ login_working_directories.results }}"
+      loop_control:
+        loop_var: working_directory
+        label: "{{ working_directory.unit_name }}"
+      changed_when: true

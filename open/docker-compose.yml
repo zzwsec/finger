@@ -1,44 +1,40 @@
 services:
   open:
-    image: registry.cn-chengdu.aliyuncs.com/zzwsec/open:v0.3
+    image: registry.cn-chengdu.aliyuncs.com/zzwsec/open:v1.0.0
     container_name: open
+    restart: unless-stopped
+    stop_grace_period: 30s
     volumes:
-      - ./game_list.txt:/open/game_list.txt
-      - ./login_list.txt:/open/login_list.txt
-      - ./init.txt:/open/init.txt
-      - /root/.ssh/:/root/.ssh/:ro
+      - ./config:/open/config:ro
+      - ./state:/open/state
+      - /root/.ssh:/root/.ssh:ro
     environment:
-      - workMode=auto # auto 或 manual
-      - cdnURL=http://10.46.98.60:20011/openserver/
-      - loginListFilePath=/data/server/login/etc  # white 和 limit 文件存放目录，不是 login 实例的目录
-      - logDBHost=192.168.121.101
-      - logDBPort=3306
-      - logDBUser=root
-      - logDBPassword=root
-      - logDBName=cbt4_log
-      - criticalRegisterCount=2000  # 注册人数临界值
-      - criticalRechargeCount=100  # 充值人数临界值
-      - criticalMoney=6  # 充值金额临界值
-      - sleepInterval=60  # 开放白单与限制创建之间的时间间隔。单位：秒
-      - domain=/p8
-      - thread=8
-      - payNotifyUrl=http://127.0.0.1:8088/p8/api/callback_kingnet.php
-      - zk1IP=192.168.121.101
-      - zk1Port=2881
-      - zk2IP=192.168.121.102
-      - zk2Port=2882
-      - zk3IP=192.168.121.103
-      - zk3Port=2883
-      - gameDBHost=192.168.121.101
-      - gameDBUser=root
-      - gameDBPassword=123456
-      - gameIndexNum=2
-    deploy:
-      resources:
-        limits:
-          cpus: "0.25"
-          memory: 256M
-        reservations:
-          cpus: "0.125"
-          memory: 64M
-    network_mode: bridge
+      OPEN_CDN_URL: http://10.46.97.226:20011/openserver/
+      OPEN_LOGIN_HOST: 10.46.99.216
+
+      OPEN_LOG_DATABASE_HOST: 10.46.97.102
+      # OPEN_LOG_DATABASE_USER: root
+      OPEN_LOG_DATABASE_PASSWORD: "123456"
+      # OPEN_LOG_DATABASE_PORT: "3306"
+      # OPEN_LOG_DATABASE_NAME: cbt4_log
+
+      # OPEN_REGISTER_THRESHOLD: "2000" # 当前 game 注册人数达到此值时开下一个 game
+      # OPEN_RECHARGE_THRESHOLD: "100" # 当前 game 达到最低充值金额的玩家数达到此值时开下一个 game
+      # OPEN_MONEY_THRESHOLD: "6" # 统计付费玩家时，每个玩家累计充值金额的最低值
+      # OPEN_POLL_INTERVAL: 10s # 查询注册和付费人数的间隔
+      # OPEN_LIMIT_DELAY: 300s # 开放新 game 后，等待多久再限制上一个 game 创建角色
+
+      # OPEN_DOMAIN: /p8
+      # OPEN_GAME_THREADS: "8"
+      OPEN_PAY_NOTIFY_URL: http://127.0.0.1:8088/p8/api/callback_kingnet.php
+      OPEN_ZK_ENDPOINTS: 10.46.96.254:2881,10.46.96.254:2882,10.46.96.254:2883
+      OPEN_GAME_DATABASE_HOST: 10.46.96.179
+      # OPEN_GAME_DATABASE_USER: root
+      OPEN_GAME_DATABASE_PASSWORD: "123456"
+      # OPEN_GAME_DATABASE_PORT: "3306"
+      # OPEN_GAME_DATABASE_NAME_PREFIX: cbt4_game_
+      # OPEN_GAME_INDEX_COUNT: "2"
+      # OPEN_GAME_BASE_PORT: "3340"
+      # OPEN_GAME_GROUP_ID: "1"
+    cpus: 2
+    mem_limit: 2048M

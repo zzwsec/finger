@@ -1,0 +1,64 @@
+---
+- name: Package source game
+  hosts: "{{ target_hosts }}"
+  gather_facts: false
+  vars:
+    artifact_path: /tmp/open/game.tar.gz
+  tasks:
+    - name: Create controller artifact directory
+      file:
+        path: "{{ artifact_path | dirname }}"
+        state: directory
+        mode: '0700'
+      delegate_to: localhost
+
+    - name: Validate source game directory
+      stat:
+        path: "/data/game{{ area_id }}"
+      register: source_game_dir
+      failed_when: >
+        not (source_game_dir.stat.exists | default(false)) or
+        not (source_game_dir.stat.isdir | default(false))
+
+    - name: Validate source game files
+      stat:
+        path: "/data/game{{ area_id }}/{{ item }}"
+      loop:
+        - p8_app_server
+        - proto
+        - etc
+        - lua
+      register: source_game_files
+      failed_when: not (source_game_files.stat.exists | default(false))
+
+    - name: Create remote temporary archive
+      tempfile:
+        state: file
+        path: /data
+        prefix: .p8-open-
+        suffix: .tar.gz
+      register: remote_archive
+
+    - name: Package game files
+      command:
+        argv:
+          - tar
+          - -czf
+          - "{{ remote_archive.path }}"
+          - -C
+          - "/data/game{{ area_id }}"
+          - p8_app_server
+          - proto
+          - etc
+          - lua
+
+    - name: Fetch game archive
+      fetch:
+        src: "{{ remote_archive.path }}"
+        dest: "{{ artifact_path }}"
+        flat: true
+
+    - name: Remove remote temporary archive
+      file:
+        path: "{{ remote_archive.path }}"
+        state: absent

@@ -1,0 +1,190 @@
+package app
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"time"
+
+	"github.com/zzwsec/finger/open/internal/config"
+	"github.com/zzwsec/finger/open/internal/metrics"
+	"github.com/zzwsec/finger/open/internal/topology"
+)
+
+type State interface {
+	Current() (int, error)
+	Set(int) error
+}
+
+type Metrics interface {
+	Counts(context.Context, int, int) (metrics.Counts, error)
+}
+
+type Automation interface {
+	Package(context.Context, topology.Game) error
+	Install(context.Context, topology.Game, config.Install) error
+	RemoveWhitelist(context.Context, []string, int) error
+	AddLimit(context.Context, []string, int) error
+	ReloadLogins(context.Context, []string) error
+}
+
+type CDN interface {
+	Flush(context.Context, int) error
+}
+
+type Dependencies struct {
+	Config     config.Config
+	Topology   *topology.Topology
+	State      State
+	Metrics    Metrics
+	Automation Automation
+	CDN        CDN
+	Logger     *slog.Logger
+}
+
+type Service struct {
+	cfg        config.Config
+	topology   *topology.Topology
+	state      State
+	metrics    Metrics
+	automation Automation
+	cdn        CDN
+	logger     *slog.Logger
+}
+
+func New(dependencies Dependencies) *Service {
+	return &Service{
+		cfg:        dependencies.Config,
+		topology:   dependencies.Topology,
+		state:      dependencies.State,
+		metrics:    dependencies.Metrics,
+		automation: dependencies.Automation,
+		cdn:        dependencies.CDN,
+		logger:     dependencies.Logger,
+	}
+}
+
+func (s *Service) Run(ctx context.Context) error {
+	currentID, err := s.state.Current()
+	if err != nil {
+		return err
+	}
+	if _, exists := s.topology.Game(currentID); !exists {
+		return fmt.Errorf("current game%d is not present in topology", currentID)
+	}
+
+	for {
+		opened, err := s.check(ctx, currentID)
+		if err != nil {
+			s.logger.Error("open check failed", "game", currentID, "error", err)
+		} else if opened {
+			currentID++
+		}
+
+		if err := wait(ctx, s.cfg.PollInterval); err != nil {
+			return nil
+		}
+	}
+}
+
+func (s *Service) check(ctx context.Context, currentID int) (bool, error) {
+	next, exists := s.topology.Game(currentID + 1)
+	if !exists {
+		s.logger.Info("no next game configured", "current_game", currentID)
+		return false, nil
+	}
+
+	counts, err := s.metrics.Counts(ctx, currentID, s.cfg.MoneyThreshold)
+	if err != nil {
+		return false, err
+	}
+	s.logger.Info("threshold check",
+		"game", currentID,
+		"registered", counts.Registered,
+		"register_threshold", s.cfg.RegisterThreshold,
+		"recharged", counts.Recharged,
+		"recharge_threshold", s.cfg.RechargeThreshold,
+		"minimum_money", s.cfg.MoneyThreshold,
+	)
+	if counts.Registered < s.cfg.RegisterThreshold && counts.Recharged < s.cfg.RechargeThreshold {
+		return false, nil
+	}
+
+	current, _ := s.topology.Game(currentID)
+	if err := s.open(ctx, current, next); err != nil {
+		return false, err
+	}
+	if err := s.state.Set(next.ID); err != nil {
+		return false, err
+	}
+	s.logger.Info("game opened", "game", next.ID, "host", next.Host)
+	return true, nil
+}
+
+func (s *Service) open(ctx context.Context, current, next topology.Game) error {
+	if err := s.runStep(ctx, "package source game", func(ctx context.Context) error {
+		return s.automation.Package(ctx, current)
+	}); err != nil {
+		return err
+	}
+	if err := s.runStep(ctx, "install next game", func(ctx context.Context) error {
+		return s.automation.Install(ctx, next, s.cfg.Install)
+	}); err != nil {
+		return err
+	}
+
+	login := []string{s.cfg.LoginHost}
+	steps := []struct {
+		name string
+		run  func(context.Context) error
+	}{
+		{"remove whitelist entry", func(ctx context.Context) error {
+			return s.automation.RemoveWhitelist(ctx, login, next.ID)
+		}},
+		{"reload login services", func(ctx context.Context) error { return s.automation.ReloadLogins(ctx, login) }},
+		{"flush CDN", func(ctx context.Context) error { return s.cdn.Flush(ctx, next.ID) }},
+		{"wait before limit update", func(ctx context.Context) error { return wait(ctx, s.cfg.LimitDelay) }},
+		{"add previous game to limit", func(ctx context.Context) error {
+			return s.automation.AddLimit(ctx, login, current.ID)
+		}},
+		{"reload login services after limit", func(ctx context.Context) error {
+			return s.automation.ReloadLogins(ctx, login)
+		}},
+	}
+	for _, step := range steps {
+		if err := s.runStep(ctx, step.name, step.run); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Service) runStep(ctx context.Context, name string, operation func(context.Context) error) error {
+	const attempts = 3
+	var lastErr error
+	for attempt := 1; attempt <= attempts; attempt++ {
+		s.logger.Info("running open step", "step", name, "attempt", attempt, "attempts", attempts)
+		if err := operation(ctx); err == nil {
+			return nil
+		} else {
+			lastErr = err
+		}
+		if attempt < attempts {
+			if err := wait(ctx, time.Duration(attempt*attempt)*time.Second); err != nil {
+				return err
+			}
+		}
+	}
+	return fmt.Errorf("%s failed after %d attempts: %w", name, attempts, lastErr)
+}
+
+func wait(ctx context.Context, duration time.Duration) error {
+	timer := time.NewTimer(duration)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
+}
