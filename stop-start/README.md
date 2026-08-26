@@ -28,13 +28,13 @@ bash control.sh start
 启动顺序：
 
 ```text
-zk → log → global → gm → cross → game → gate → login
+zk → log → global → gm → cross → game → gate → login → api
 ```
 
 停止顺序：
 
 ```text
-login → gate → game → cross → gm → global → log → zk
+login → gate → game → cross → gm → global → log → zk → api
 ```
 
 `game`、`cross`、`gm`、`global`、`log` 停止时每批处理两台主机。同一主机上的
@@ -51,8 +51,27 @@ bash control.sh stop game
 bash control.sh start game
 ```
 
-服务类型支持 `game`、`login`、`gate`、`cross`、`gm`、`global`、`log` 和 `zk`。
+服务类型支持 `game`、`login`、`gate`、`cross`、`gm`、`global`、`log`、`zk` 和 `api`。
 
-playbook 直接查找 systemd unit，不依赖程序目录结构。未找到对应 unit 时执行失败。
+## 添加到系统 PATH
+
+可以把控制脚本软链接到系统 PATH：
+
+```bash
+sudo ln -s /绝对路径/stop-start/control.sh /usr/local/bin/an-stop-start
+```
+
+之后可以从任意目录调用：
+
+```bash
+an-stop-start stop
+an-stop-start start
+an-stop-start stop game
+an-stop-start start game
+```
+
+脚本会解析软链接的真实路径，配置、inventory 和 playbook 仍从原始 `stop-start/` 目录读取。
+
+playbook 直接查找 systemd unit，不依赖程序目录结构。某台主机未找到对应 unit 时跳过该主机并继续；整个服务组都未找到时也继续后续服务。
 
 执行中途失败时日志保留在 `runlog/`，全部执行成功后自动删除该目录。

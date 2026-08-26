@@ -10,7 +10,8 @@ white='\033[0m'
 _err_msg() { echo -e "${red}错误 $1${white}" >&2; }
 _info_msg() { echo -e "${yellow}提示 $1${white}"; }
 
-script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd) || exit 1
+script_path=$(readlink -f -- "${BASH_SOURCE[0]}") || exit 1
+script_dir=$(cd -- "$(dirname -- "$script_path")" && pwd) || exit 1
 export ANSIBLE_CONFIG="${script_dir}/ansible.cfg"
 playbook_file="${script_dir}/playbook/service.yaml"
 inventory_file="${script_dir}/hosts"
@@ -25,6 +26,7 @@ declare -A unit_pattern=(
     [global]='global*.service'
     [log]='logserver*.service'
     [zk]='zk*.service'
+    [api]='apiserver*.service'
 )
 
 declare -A save_on_stop=(
@@ -67,7 +69,8 @@ main() {
     local target=${node_name:-全部服务}
 
     _info_msg "执行 $option $target，按 Enter 继续..."
-    read -r
+    read -r || err_exit "未收到确认，已取消操作" 2
+    mkdir -p "$runlog_dir" || err_exit "日志目录 $runlog_dir 创建失败" 1
 
     if [[ -n "$node_name" ]]; then
         update_option "$node_name" "$option"
@@ -80,18 +83,18 @@ main() {
 
 update_start() {
     local node_name
-    for node_name in zk log global gm cross game gate login; do
+    for node_name in zk log global gm cross game gate login api; do
         update_option "$node_name" start
     done
 }
 
 update_stop() {
     local node_name
-    for node_name in login gate game cross gm global log zk; do
+    for node_name in login gate game cross gm global log zk api; do
         update_option "$node_name" stop
     done
 
-    for node_name in login gate game cross gm global log zk; do
+    for node_name in login gate game cross gm global log zk api; do
         update_option "$node_name" clean
     done
 
@@ -155,6 +158,5 @@ command -v ansible-playbook &>/dev/null || err_exit "ansible-playbook 未安装"
 [[ -f "$ANSIBLE_CONFIG" ]] || err_exit "文件 $ANSIBLE_CONFIG 不存在" 1
 [[ -f "$inventory_file" ]] || err_exit "文件 $inventory_file 不存在" 1
 [[ -f "$playbook_file" ]] || err_exit "playbook 文件 $playbook_file 不存在" 1
-mkdir -p "$runlog_dir" || err_exit "日志目录 $runlog_dir 创建失败" 1
 
 main "$1" "${2:-}"

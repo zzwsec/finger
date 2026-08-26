@@ -5,7 +5,6 @@
       shell: "systemctl list-unit-files '{{ unit_pattern }}' --no-legend --no-pager | awk '{print $1}'"
       register: unit_list
       changed_when: false
-      failed_when: unit_list.stdout_lines | length == 0
       tags:
         - stop
         - start

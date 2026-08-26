@@ -1,28 +1,49 @@
 [all]
-node-01 ansible_host=192.168.121.102
-node-02 ansible_host=192.168.121.103
+login_01 ansible_host=10.46.99.216
+gate_01 ansible_host=10.46.99.216
+cross_01 ansible_host=10.46.99.10
+game_01 ansible_host=10.46.99.216
+game_02 ansible_host=10.46.96.198
+game_03 ansible_host=10.46.98.109
+game_04 ansible_host=10.46.99.53
+game_05 ansible_host=10.46.97.50
+game_06 ansible_host=10.46.98.90
+game_07 ansible_host=10.46.99.167
+gm_01 ansible_host=10.46.97.226
+log_01 ansible_host=10.46.98.122
+global_01 ansible_host=10.46.96.254
+zk_01 ansible_host=10.46.96.254
+api_01 ansible_host=10.46.98.122
 
 [login]
-node-01
+login_01
 
 [gate]
-node-01
-
-[game]
-node-01
-node-02
+gate_01
 
 [cross]
-node-01
+cross_01
+
+[game]
+game_01
+game_02
+game_03
+game_04
+game_05
+game_06
+game_07
 
 [gm]
-node-01
-
-[global]
-node-01
+gm_01
 
 [log]
-node-01
+log_01
+
+[global]
+global_01
 
 [zk]
-node-01
+zk_01
+
+[api]
+api_01

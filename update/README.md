@@ -1,35 +1,119 @@
-step1:
-    name: 检查file目录
-    tips: groups.lua 和 increment.tar.gz 和 alldo.tar.gz 不能共存，只能有一个在 file 目录中
+## 更新类型
 
-step2:
-    name: 检查 increment.tar.gz 或 alldo.tar.gz 解压产物
-    tips:
-    - 确保 increment.tar.gz 或 alldo.tar.gz 解压后能得到一个 app 目录
-    - 压缩方式：mkdir app && find . -maxdepth 1 -not -name "app" -not -name "." -exec cp -r {} app/ \; && tar -zcvf increment.tar.gz app
+| 更新文件 | 更新范围 |
+| --- | --- |
+| `groups.lua` | cross、game、api |
+| `increment.tar.gz` | cross、game、gm、log、api |
+| `alldo.tar.gz` | cross、game、gm、log、api、gate、login、zk、global |
 
-step3:
-    name: 检查 hosts 文件中各个服务的 ip 是否正确
+`file/` 中以上三个文件必须且只能存在一个。压缩包中的内容必须全部位于顶层 `app/` 目录中，例如：
 
-step4:
-    name: 启动
-    tips: bash start.sh
+```text
+app/
+├── etc/
+├── lua/
+└── ...
+```
 
-====================================================================
-单独执行剧本使用如下方式：
+示例打包命令：
 
-更新groups:
-  - cross: ansible-playbook playbook/cross/cross-entry.yaml -t groups
-  - game: ansible-playbook playbook/game/game-entry.yaml -t groups
+```bash
+tar zcf increment.tar.gz app
+```
 
-其他类型更新:
-  - cross: ansible-playbook playbook/cross/cross-entry.yaml -t increment
-  - game: ansible-playbook playbook/game/game-entry.yaml -t increment
-  - gm: ansible-playbook playbook/gm/gm-entry.yaml -t increment
-  - log: ansible-playbook playbook/log/log-entry.yaml -t increment
+## 执行更新
 
-压缩包需要从 increment.tar.gz 变更为 alldo.tar.gz ，mv就行
-  - gate: ansible-playbook playbook/gate/gate-entry.yaml -t alldo
-  - login: ansible-playbook playbook/login/login-entry.yaml -t alldo
-  - zk: ansible-playbook playbook/zk/zk-entry.yaml -t alldo
-  - global: ansible-playbook playbook/global/global-entry.yaml -t alldo
+`hosts` 先在 `[all]` 中按照“服务名 + 编号”的格式定义别名和 IP，再将别名加入对应服务组，例如：
+
+```ini
+[all]
+login_01 ansible_host=192.168.121.102
+game_01 ansible_host=192.168.121.102
+
+[game]
+game_01
+
+[login]
+login_01
+```
+
+### 更新全部适用服务
+
+不传服务参数时，脚本根据 `file/` 中的工件更新该模式下的全部适用服务：
+
+```bash
+bash start.sh
+```
+
+执行顺序如下：
+
+| 工件 | 执行顺序 |
+| --- | --- |
+| `groups.lua` | cross → game → api |
+| `increment.tar.gz` | cross → game → gm → log → api |
+| `alldo.tar.gz` | cross → game → gm → log → api → gate → login → zk → global |
+
+### 单独更新一个服务
+
+将服务类型作为唯一参数传入：
+
+```bash
+bash start.sh game
+bash start.sh cross
+```
+
+完整用法：
+
+```text
+bash start.sh [cross|game|gm|log|api|gate|login|zk|global]
+```
+
+服务必须受到当前工件支持，否则脚本会在连接远端前退出：
+
+```text
+groups.lua        → cross、game、api
+increment.tar.gz → cross、game、gm、log、api
+alldo.tar.gz      → cross、game、gm、log、api、gate、login、zk、global
+```
+
+脚本可以使用用绝对路径调用：
+
+```bash
+bash /绝对路径/update/start.sh game
+```
+
+也可以把脚本软链接到系统 PATH：
+
+```bash
+ln -s /绝对路径/update/start.sh /usr/local/bin/an-update
+an-update game
+```
+
+脚本会解析软链接的真实路径，配置、inventory、playbook 和 `file/` 仍从原始 `update/` 目录读取。
+
+脚本会校验更新文件并等待确认。任一服务更新失败后立即停止；有失败日志时保留 `runlog/`，全部成功后自动删除该目录。
+
+## systemd unit 规则
+
+| 服务 | unit 匹配规则 |
+| --- | --- |
+| login | `login*.service` |
+| gate | `gate*.service` |
+| game | `game*.service` |
+| cross | `crossserver*.service` |
+| gm | `gmserver*.service` |
+| global | `global*.service` |
+| log | `logserver*.service` |
+| zk | `zk*.service` |
+| api | `apiserver*.service` |
+
+每类服务的更新过程如下：
+
+1. 使用 `systemctl list-unit-files` 查找 unit；某台主机未找到匹配 unit 时跳过该主机并继续。
+2. 使用 `systemctl show` 读取每个 unit 的 `WorkingDirectory`，并要求目录位于 `/data/` 下。
+3. 更新 `groups.lua`，或由控制节点把压缩包直接传输并解压到该工作目录；解压时去掉顶层 `app/`。
+4. 仅对更新前处于 active 状态的 unit 执行 `systemctl reload`；unit 自身的 `ExecReload` 决定具体 reload 信号和次数。
+
+原本未运行的 unit 只更新文件，不会被启动。
+
+例如安装工具创建的 `/data/game1` 会由 `game1.service` 的 `WorkingDirectory` 自动定位。

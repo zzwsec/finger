@@ -1,0 +1,107 @@
+- hosts: "{{ service_group }}"
+  tasks:
+    - name: 查找 {{ service_group }} unit
+      shell: "systemctl list-unit-files '{{ unit_pattern }}' --no-legend --no-pager | awk '{print $1}'"
+      register: update_unit_list
+      changed_when: false
+      tags:
+        - groups
+        - increment
+        - alldo
+
+    - name: 获取并校验 {{ service_group }} unit 工作目录
+      command:
+        argv:
+          - systemctl
+          - show
+          - --property=WorkingDirectory
+          - --value
+          - "{{ unit_name }}"
+      loop: "{{ update_unit_list.stdout_lines }}"
+      loop_control:
+        loop_var: unit_name
+        label: "{{ unit_name }}"
+      register: update_working_directories
+      changed_when: false
+      failed_when: >
+        update_working_directories.rc != 0 or
+        not (update_working_directories.stdout | trim).startswith('/data/')
+      tags:
+        - groups
+        - increment
+        - alldo
+
+    - name: 检查 {{ service_group }} unit 是否正在运行
+      command:
+        argv:
+          - systemctl
+          - is-active
+          - --quiet
+          - "{{ working_directory.unit_name }}"
+      loop: "{{ update_working_directories.results }}"
+      loop_control:
+        loop_var: working_directory
+        label: "{{ working_directory.unit_name }}"
+      register: update_unit_states
+      changed_when: false
+      failed_when: update_unit_states.rc not in [0, 3]
+      tags:
+        - groups
+        - increment
+        - alldo
+
+    - name: 分发 groups.lua
+      copy:
+        src: "{{ inventory_dir }}/file/groups.lua"
+        dest: "{{ unit_state.working_directory.stdout | trim }}/etc/groups.lua"
+        mode: '0644'
+      loop: "{{ update_unit_states.results }}"
+      loop_control:
+        loop_var: unit_state
+        label: "{{ unit_state.working_directory.unit_name }}"
+      tags:
+        - groups
+
+    - name: 解压更新文件
+      unarchive:
+        src: "{{ inventory_dir }}/file/{{ update_archive }}"
+        dest: "{{ unit_state.working_directory.stdout | trim }}/"
+        extra_opts:
+          - --strip-components=1
+          - --overwrite
+      vars:
+        update_archive: "{{ 'increment.tar.gz' if 'increment' in ansible_run_tags else 'alldo.tar.gz' }}"
+      loop: "{{ update_unit_states.results }}"
+      loop_control:
+        loop_var: unit_state
+        label: "{{ unit_state.working_directory.unit_name }}"
+      tags:
+        - increment
+        - alldo
+
+    - name: 跳过未运行的 unit
+      debug:
+        msg: "{{ unit_state.working_directory.unit_name }} 当前未运行，已更新文件但跳过 reload"
+      loop: "{{ update_unit_states.results }}"
+      loop_control:
+        loop_var: unit_state
+        label: "{{ unit_state.working_directory.unit_name }}"
+      when: unit_state.rc != 0
+      tags:
+        - groups
+        - increment
+        - alldo
+
+    - name: Reload {{ service_group }} unit
+      systemd:
+        name: "{{ unit_state.working_directory.unit_name }}"
+        state: reloaded
+      loop: "{{ update_unit_states.results }}"
+      loop_control:
+        loop_var: unit_state
+        label: "{{ unit_state.working_directory.unit_name }}"
+      when: unit_state.rc == 0
+      tags:
+        - groups
+        - increment
+        - alldo
