@@ -16,8 +16,12 @@ func TestLoad(t *testing.T) {
 		t.Fatalf("Load() error = %v", err)
 	}
 	game, exists := topology.Game(2)
-	if !exists || game.Host != "10.0.0.2" {
+	if !exists || game.Host != "10.0.0.2" || game.Index != 0 {
 		t.Fatalf("Game(2) = %+v, %v", game, exists)
+	}
+	game3, exists := topology.Game(3)
+	if !exists || game3.Host != "10.0.0.1" || game3.Index != 1 {
+		t.Fatalf("Game(3) = %+v, %v", game3, exists)
 	}
 }
 

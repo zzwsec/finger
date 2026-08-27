@@ -10,8 +10,9 @@ import (
 )
 
 type Game struct {
-	ID   int
-	Host string
+	ID    int
+	Host  string
+	Index int // 0-based position within the host's game list; port = BasePort + Index*1000
 }
 
 type Topology struct {
@@ -56,11 +57,11 @@ func loadGames(path string) (map[int]Game, error) {
 		if err != nil {
 			return nil, fmt.Errorf("%s:%d: %w", path, lineNumber, err)
 		}
-		for _, id := range ids {
+		for index, id := range ids {
 			if previous, exists := games[id]; exists {
 				return nil, fmt.Errorf("%s:%d: game%d is already assigned to %s", path, lineNumber, id, previous.Host)
 			}
-			games[id] = Game{ID: id, Host: fields[0]}
+			games[id] = Game{ID: id, Host: fields[0], Index: index}
 		}
 	}
 	if err := scanner.Err(); err != nil {

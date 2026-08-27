@@ -41,7 +41,7 @@ func (c *Client) Install(ctx context.Context, game topology.Game, cfg config.Ins
 		"area_id":        game.ID,
 		"current_ip":     game.Host,
 		"domain":         cfg.Domain,
-		"game_port":      cfg.BasePort + game.ID,
+		"game_port":      cfg.BasePort + game.Index*1000,
 		"thread":         cfg.Threads,
 		"pay_notify_url": cfg.PayNotifyURL,
 		"discovers":      discovers,
