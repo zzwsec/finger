@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -o nounset
 
@@ -56,7 +56,8 @@ _show_spinner() {
     local len=${#spinstr}
 
     while kill -0 "$pid" 2>/dev/null; do
-        printf "\r  ${yellow}%s [%s]${white}" "$msg" "${spinstr:i++%len:1}"
+        printf "\r${yellow}[%s] %s [%s]${white}" \
+            "$(date '+%T')" "$msg" "${spinstr:i++%len:1}"
         sleep 0.1
     done
 
@@ -67,10 +68,15 @@ main() {
     local option=$1
     local node_name=${2:-}
     local target=${node_name:-全部服务}
+    local start_time
+    local end_time
 
     _info_msg "执行 $option $target，按 Enter 继续..."
     read -r || err_exit "未收到确认，已取消操作" 2
     mkdir -p "$runlog_dir" || err_exit "日志目录 $runlog_dir 创建失败" 1
+
+    start_time=$(date +%s)
+    printf "开始时间: %s\n\n" "$(date '+%F %T')"
 
     if [[ -n "$node_name" ]]; then
         update_option "$node_name" "$option"
@@ -79,6 +85,10 @@ main() {
     else
         update_stop
     fi
+
+    end_time=$(date +%s)
+    printf "\n结束时间: %s\n" "$(date '+%F %T')"
+    printf "总耗时: %d 秒\n" "$((end_time - start_time))"
 }
 
 update_start() {
@@ -112,7 +122,7 @@ update_option() {
         batch_size=2
     fi
 
-    printf "当前时间: %s\n" "$(date '+%F %T')" >> "$log_file"
+    printf "开始时间: %s\n" "$(date '+%F %T')" >> "$log_file"
 
     ansible-playbook -i "$inventory_file" "$playbook_file" \
         -e "service_group=$node_name" \
@@ -132,11 +142,13 @@ update_option() {
     printf "\r\033[K"
 
     if (( task_status != 0 )); then
-        printf "  ${red}${flag} --> %s node [失败]，执行过程见 %s${white}\n" "$node_name" "$log_file"
+        printf "${red}[%s] ${flag} --> %s node [失败]，执行过程见 %s${white}\n" \
+            "$(date '+%T')" "$node_name" "$log_file"
         exit 1
     fi
 
-    printf "  ${green}${flag} --> %s node [完成]${white}\n" "$node_name"
+    printf "${green}[%s] ${flag} --> %s node [完成]${white}\n" \
+        "$(date '+%T')" "$node_name"
 }
 
 [[ $# -ge 1 && $# -le 2 ]] || err_exit "参数数量错误" 2
