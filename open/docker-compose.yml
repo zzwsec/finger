@@ -2,7 +2,7 @@ services:
   open:
     image: registry.cn-chengdu.aliyuncs.com/zzwsec/open:v1.0.0
     container_name: open
-    restart: unless-stopped
+    restart: on-failure
     stop_grace_period: 30s
     volumes:
       - ./config:/open/config:ro

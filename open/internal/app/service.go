@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -10,6 +11,8 @@ import (
 	"github.com/zzwsec/finger/open/internal/metrics"
 	"github.com/zzwsec/finger/open/internal/topology"
 )
+
+var errNoNextGame = errors.New("no next game configured")
 
 type State interface {
 	Current() (int, error)
@@ -75,7 +78,10 @@ func (s *Service) Run(ctx context.Context) error {
 
 	for {
 		opened, err := s.check(ctx, currentID)
-		if err != nil {
+		if errors.Is(err, errNoNextGame) {
+			s.logger.Info("no next game configured", "current_game", currentID)
+			return nil
+		} else if err != nil {
 			s.logger.Error("open check failed", "game", currentID, "error", err)
 		} else if opened {
 			currentID++
@@ -90,8 +96,7 @@ func (s *Service) Run(ctx context.Context) error {
 func (s *Service) check(ctx context.Context, currentID int) (bool, error) {
 	next, exists := s.topology.Game(currentID + 1)
 	if !exists {
-		s.logger.Info("no next game configured", "current_game", currentID)
-		return false, nil
+		return false, errNoNextGame
 	}
 
 	counts, err := s.metrics.Counts(ctx, currentID, s.cfg.MoneyThreshold)

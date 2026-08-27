@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/zzwsec/finger/open/internal/config"
 	"github.com/zzwsec/finger/open/internal/metrics"
@@ -111,6 +112,34 @@ func TestCheckDoesNothingBelowThreshold(t *testing.T) {
 	opened, err := service.check(context.Background(), 1)
 	if err != nil || opened || len(calls) != 0 {
 		t.Fatalf("check() = %v, %v, calls %v", opened, err, calls)
+	}
+}
+
+func TestRunExitsWhenNextGameIsNotConfigured(t *testing.T) {
+	directory := t.TempDir()
+	games := filepath.Join(directory, "games.txt")
+	if err := os.WriteFile(games, []byte("10.0.0.1 [61]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	topology, err := topology.Load(games)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	service := New(Dependencies{
+		Config:   config.Config{PollInterval: time.Hour},
+		Topology: topology,
+		State:    &fakeState{current: 61},
+		Logger:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	if err := service.Run(ctx); err != nil {
+		t.Fatalf("Run() error = %v", err)
+	}
+	if ctx.Err() != nil {
+		t.Fatal("Run() waited for the context instead of exiting immediately")
 	}
 }
 
