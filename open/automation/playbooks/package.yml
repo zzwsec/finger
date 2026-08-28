@@ -3,7 +3,7 @@
   hosts: "{{ target_hosts }}"
   gather_facts: false
   vars:
-    artifact_path: /tmp/open/game.tar.gz
+    artifact_path: /open/state/game.tar.gz
   tasks:
     - name: Create controller artifact directory
       file:

@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"os"
@@ -12,15 +13,29 @@ import (
 
 	"github.com/zzwsec/finger/open/internal/config"
 	"github.com/zzwsec/finger/open/internal/metrics"
+	workflowstate "github.com/zzwsec/finger/open/internal/state"
 	"github.com/zzwsec/finger/open/internal/topology"
 )
 
 type fakeState struct {
 	current int
+	pending *workflowstate.Pending
 }
 
 func (s *fakeState) Current() (int, error) { return s.current, nil }
 func (s *fakeState) Set(id int) error      { s.current = id; return nil }
+func (s *fakeState) Pending() (*workflowstate.Pending, error) {
+	if s.pending == nil {
+		return nil, nil
+	}
+	pending := *s.pending
+	return &pending, nil
+}
+func (s *fakeState) SetPending(pending workflowstate.Pending) error {
+	s.pending = &pending
+	return nil
+}
+func (s *fakeState) ClearPending() error { s.pending = nil; return nil }
 
 type fakeMetrics struct {
 	counts metrics.Counts
@@ -53,11 +68,12 @@ func (a fakeAutomation) ReloadLogins(context.Context, []string) error {
 
 type fakeCDN struct {
 	calls *[]string
+	err   error
 }
 
 func (c fakeCDN) Flush(context.Context, int) error {
 	*c.calls = append(*c.calls, "cdn")
-	return nil
+	return c.err
 }
 
 func TestCheckRunsOpenWorkflow(t *testing.T) {
@@ -112,6 +128,51 @@ func TestCheckDoesNothingBelowThreshold(t *testing.T) {
 	opened, err := service.check(context.Background(), 1)
 	if err != nil || opened || len(calls) != 0 {
 		t.Fatalf("check() = %v, %v, calls %v", opened, err, calls)
+	}
+}
+
+func TestOpenResumesFromFailedCDNStep(t *testing.T) {
+	state := &fakeState{current: 1}
+	var calls []string
+	service := New(Dependencies{
+		Config: config.Config{
+			LoginHost:         "10.0.0.3",
+			RegisterThreshold: 1,
+			RechargeThreshold: 1,
+			MoneyThreshold:    6,
+		},
+		Topology:   testTopology(t),
+		State:      state,
+		Metrics:    fakeMetrics{counts: metrics.Counts{Registered: 1}},
+		Automation: fakeAutomation{calls: &calls},
+		CDN:        fakeCDN{calls: &calls, err: errors.New("CDN unavailable")},
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+	})
+
+	failedContext, cancel := context.WithCancel(context.Background())
+	cancel()
+	opened, err := service.check(failedContext, 1)
+	if err == nil || opened {
+		t.Fatalf("check() = %v, %v, want CDN error", opened, err)
+	}
+	if state.pending == nil || state.pending.NextStep != stepCDN {
+		t.Fatalf("pending state = %#v, want next step %q", state.pending, stepCDN)
+	}
+
+	service.cdn = fakeCDN{calls: &calls}
+	opened, err = service.resumeOpen(context.Background(), 1, *state.pending)
+	if err != nil || !opened {
+		t.Fatalf("resumeOpen() = %v, %v", opened, err)
+	}
+	if state.current != 2 || state.pending != nil {
+		t.Fatalf("state after resume = current %d, pending %#v", state.current, state.pending)
+	}
+	want := []string{
+		"package", "install", "whitelist", "reload",
+		"cdn", "cdn", "limit", "reload",
+	}
+	if !reflect.DeepEqual(calls, want) {
+		t.Fatalf("workflow calls = %v, want %v", calls, want)
 	}
 }
 

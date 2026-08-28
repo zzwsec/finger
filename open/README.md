@@ -51,7 +51,17 @@ login 使用 `login*.service`。启动、停止、reload 和工作目录查询�
 6. 将上一个 game 写入 login 节点的创建限制文件，再次 reload login。
 7. 所有步骤成功后，原子更新 `state/current_game`。
 
-每个外部步骤最多执行三次，进程收到 `SIGINT` 或 `SIGTERM` 后会取消正在执行的数据库、HTTP、等待或 Ansible 操作。
+每个外部步骤最多执行四次，前三次失败后分别等待 5 秒、10 秒和 15 秒。进程收到 `SIGINT` 或 `SIGTERM` 后会取消正在执行的数据库、HTTP、等待或 Ansible 操作。
+
+开服开始后，程序会在 `state/current_game.pending` 中原子记录下一步操作。打包产物保存在持久化挂载的 `state/game.tar.gz`，因此容器重启后安装步骤仍能读取。某一步连续失败、进程退出或容器重启后，会从失败步骤继续，不会重新执行已经完成的步骤。全部步骤完成并更新 `state/current_game` 后，pending 文件自动删除；下一次开服打包时会覆盖旧安装包。
+
+例如 game63 已安装但 CDN 刷新失败时，pending 状态为：
+
+```json
+{"current_game":62,"next_game":63,"next_step":"cdn"}
+```
+
+下一轮会直接重试 CDN，成功后继续等待、更新创建限制并提交 game63 状态。
 
 ## 拓扑文件
 

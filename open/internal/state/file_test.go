@@ -25,3 +25,31 @@ func TestFileCurrentAndSet(t *testing.T) {
 		t.Fatalf("Current() after Set = %d, %v", current, err)
 	}
 }
+
+func TestFilePendingLifecycle(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "current_game")
+	if err := os.WriteFile(path, []byte("62\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	state := New(path)
+
+	pending, err := state.Pending()
+	if err != nil || pending != nil {
+		t.Fatalf("Pending() before set = %#v, %v", pending, err)
+	}
+	want := Pending{CurrentGame: 62, NextGame: 63, NextStep: "cdn"}
+	if err := state.SetPending(want); err != nil {
+		t.Fatalf("SetPending() error = %v", err)
+	}
+	pending, err = state.Pending()
+	if err != nil || pending == nil || *pending != want {
+		t.Fatalf("Pending() = %#v, %v, want %#v", pending, err, want)
+	}
+	if err := state.ClearPending(); err != nil {
+		t.Fatalf("ClearPending() error = %v", err)
+	}
+	pending, err = state.Pending()
+	if err != nil || pending != nil {
+		t.Fatalf("Pending() after clear = %#v, %v", pending, err)
+	}
+}

@@ -9,14 +9,30 @@ import (
 
 	"github.com/zzwsec/finger/open/internal/config"
 	"github.com/zzwsec/finger/open/internal/metrics"
+	workflowstate "github.com/zzwsec/finger/open/internal/state"
 	"github.com/zzwsec/finger/open/internal/topology"
 )
 
 var errNoNextGame = errors.New("no next game configured")
 
+const (
+	stepPackage              = "package"
+	stepInstall              = "install"
+	stepRemoveWhitelist      = "remove_whitelist"
+	stepReloadAfterWhitelist = "reload_after_whitelist"
+	stepCDN                  = "cdn"
+	stepWaitBeforeLimit      = "wait_before_limit"
+	stepAddLimit             = "add_limit"
+	stepReloadAfterLimit     = "reload_after_limit"
+	stepCommit               = "commit"
+)
+
 type State interface {
 	Current() (int, error)
 	Set(int) error
+	Pending() (*workflowstate.Pending, error)
+	SetPending(workflowstate.Pending) error
+	ClearPending() error
 }
 
 type Metrics interface {
@@ -77,14 +93,31 @@ func (s *Service) Run(ctx context.Context) error {
 	}
 
 	for {
-		opened, err := s.check(ctx, currentID)
+		var opened bool
+		pending, pendingErr := s.state.Pending()
+		if pendingErr != nil {
+			return pendingErr
+		}
+		if pending != nil {
+			s.logger.Info("resuming pending open",
+				"current_game", pending.CurrentGame,
+				"next_game", pending.NextGame,
+				"next_step", pending.NextStep,
+			)
+			opened, err = s.resumeOpen(ctx, currentID, *pending)
+		} else {
+			opened, err = s.check(ctx, currentID)
+		}
 		if errors.Is(err, errNoNextGame) {
 			s.logger.Info("no next game configured", "current_game", currentID)
 			return nil
 		} else if err != nil {
 			s.logger.Error("open check failed", "game", currentID, "error", err)
 		} else if opened {
-			currentID++
+			currentID, err = s.state.Current()
+			if err != nil {
+				return err
+			}
 		}
 
 		if err := wait(ctx, s.cfg.PollInterval); err != nil {
@@ -116,56 +149,107 @@ func (s *Service) check(ctx context.Context, currentID int) (bool, error) {
 	}
 
 	current, _ := s.topology.Game(currentID)
-	if err := s.open(ctx, current, next); err != nil {
+	pending := workflowstate.Pending{
+		CurrentGame: current.ID,
+		NextGame:    next.ID,
+		NextStep:    stepPackage,
+	}
+	if err := s.state.SetPending(pending); err != nil {
 		return false, err
 	}
-	if err := s.state.Set(next.ID); err != nil {
+	return s.resumeOpen(ctx, currentID, pending)
+}
+
+func (s *Service) resumeOpen(ctx context.Context, currentID int, pending workflowstate.Pending) (bool, error) {
+	if pending.NextGame != pending.CurrentGame+1 {
+		return false, fmt.Errorf("pending open game IDs are invalid")
+	}
+	if currentID == pending.NextGame && pending.NextStep == stepCommit {
+		if err := s.state.ClearPending(); err != nil {
+			return false, err
+		}
+		return true, nil
+	}
+	if currentID != pending.CurrentGame {
+		return false, fmt.Errorf(
+			"pending open expects current game%d, state contains game%d",
+			pending.CurrentGame,
+			currentID,
+		)
+	}
+
+	current, currentExists := s.topology.Game(pending.CurrentGame)
+	next, nextExists := s.topology.Game(pending.NextGame)
+	if !currentExists || !nextExists {
+		return false, fmt.Errorf("pending open game is not present in topology")
+	}
+
+	login := []string{s.cfg.LoginHost}
+	steps := []struct {
+		key  string
+		name string
+		run  func(context.Context) error
+	}{
+		{stepPackage, "package source game", func(ctx context.Context) error {
+			return s.automation.Package(ctx, current)
+		}},
+		{stepInstall, "install next game", func(ctx context.Context) error {
+			return s.automation.Install(ctx, next, s.cfg.Install)
+		}},
+		{stepRemoveWhitelist, "remove whitelist entry", func(ctx context.Context) error {
+			return s.automation.RemoveWhitelist(ctx, login, next.ID)
+		}},
+		{stepReloadAfterWhitelist, "reload login services", func(ctx context.Context) error {
+			return s.automation.ReloadLogins(ctx, login)
+		}},
+		{stepCDN, "flush CDN", func(ctx context.Context) error { return s.cdn.Flush(ctx, next.ID) }},
+		{stepWaitBeforeLimit, "wait before limit update", func(ctx context.Context) error {
+			return wait(ctx, s.cfg.LimitDelay)
+		}},
+		{stepAddLimit, "add previous game to limit", func(ctx context.Context) error {
+			return s.automation.AddLimit(ctx, login, current.ID)
+		}},
+		{stepReloadAfterLimit, "reload login services after limit", func(ctx context.Context) error {
+			return s.automation.ReloadLogins(ctx, login)
+		}},
+		{stepCommit, "commit current game state", func(context.Context) error {
+			return s.state.Set(next.ID)
+		}},
+	}
+
+	start := -1
+	for index, step := range steps {
+		if step.key == pending.NextStep {
+			start = index
+			break
+		}
+	}
+	if start == -1 {
+		return false, fmt.Errorf("pending open contains unknown step %q", pending.NextStep)
+	}
+
+	for index := start; index < len(steps); index++ {
+		step := steps[index]
+		if err := s.runStep(ctx, step.name, step.run); err != nil {
+			return false, err
+		}
+		if index+1 < len(steps) {
+			pending.NextStep = steps[index+1].key
+			if err := s.state.SetPending(pending); err != nil {
+				return false, err
+			}
+		}
+	}
+
+	if err := s.state.ClearPending(); err != nil {
 		return false, err
 	}
 	s.logger.Info("game opened", "game", next.ID, "host", next.Host)
 	return true, nil
 }
 
-func (s *Service) open(ctx context.Context, current, next topology.Game) error {
-	if err := s.runStep(ctx, "package source game", func(ctx context.Context) error {
-		return s.automation.Package(ctx, current)
-	}); err != nil {
-		return err
-	}
-	if err := s.runStep(ctx, "install next game", func(ctx context.Context) error {
-		return s.automation.Install(ctx, next, s.cfg.Install)
-	}); err != nil {
-		return err
-	}
-
-	login := []string{s.cfg.LoginHost}
-	steps := []struct {
-		name string
-		run  func(context.Context) error
-	}{
-		{"remove whitelist entry", func(ctx context.Context) error {
-			return s.automation.RemoveWhitelist(ctx, login, next.ID)
-		}},
-		{"reload login services", func(ctx context.Context) error { return s.automation.ReloadLogins(ctx, login) }},
-		{"flush CDN", func(ctx context.Context) error { return s.cdn.Flush(ctx, next.ID) }},
-		{"wait before limit update", func(ctx context.Context) error { return wait(ctx, s.cfg.LimitDelay) }},
-		{"add previous game to limit", func(ctx context.Context) error {
-			return s.automation.AddLimit(ctx, login, current.ID)
-		}},
-		{"reload login services after limit", func(ctx context.Context) error {
-			return s.automation.ReloadLogins(ctx, login)
-		}},
-	}
-	for _, step := range steps {
-		if err := s.runStep(ctx, step.name, step.run); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 func (s *Service) runStep(ctx context.Context, name string, operation func(context.Context) error) error {
-	const attempts = 3
+	const attempts = 4
 	var lastErr error
 	for attempt := 1; attempt <= attempts; attempt++ {
 		s.logger.Info("running open step", "step", name, "attempt", attempt, "attempts", attempts)
@@ -175,7 +259,7 @@ func (s *Service) runStep(ctx context.Context, name string, operation func(conte
 			lastErr = err
 		}
 		if attempt < attempts {
-			if err := wait(ctx, time.Duration(attempt*attempt)*time.Second); err != nil {
+			if err := wait(ctx, time.Duration(attempt*5)*time.Second); err != nil {
 				return err
 			}
 		}

@@ -3,7 +3,7 @@
   hosts: "{{ target_hosts }}"
   gather_facts: false
   vars:
-    artifact_path: /tmp/open/game.tar.gz
+    artifact_path: /open/state/game.tar.gz
     game_directory: "/data/game{{ area_id }}"
     game_unit: "game{{ area_id }}.service"
     open_time: "{{ lookup('pipe', 'date +\"%Y-%m-%dT%H:01:00\"') }}"
