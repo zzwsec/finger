@@ -1,0 +1,11 @@
+[servers]
+login-game-1 ansible_host=10.46.99.216
+cross-1      ansible_host=10.46.99.10
+game-2       ansible_host=10.46.96.198
+game-3       ansible_host=10.46.98.109
+game-4       ansible_host=10.46.99.53
+game-5       ansible_host=10.46.97.50
+game-6       ansible_host=10.46.98.90
+gm-1         ansible_host=10.46.97.226
+log-api-1    ansible_host=10.46.98.122
+global-zk-1  ansible_host=10.46.96.254
