@@ -49,20 +49,17 @@ trap 'cleanup $?' EXIT
 
 validate_archive() {
     local archive_path=$1
-    local archive_entries
-    local entry
-    local normalized_entry
+    local entry normalized
 
-    archive_entries=$(tar tf "$archive_path") || err_exit "无法读取压缩包: $archive_path" 2
-    [[ -n "$archive_entries" ]] || err_exit "压缩包为空: $archive_path" 2
+    tar tf "$archive_path" > /dev/null 2>&1 || err_exit "无法读取压缩包: $archive_path" 2
 
     while IFS= read -r entry; do
-        normalized_entry=${entry#./}
-        case "$normalized_entry" in
+        normalized=${entry#./}
+        case "$normalized" in
             app|app/*) ;;
-            *) err_exit "$archive_path 包含 app 目录之外的内容: $entry" 2 ;;
+            *) err_exit "压缩包包含 app 目录之外的内容: $entry" 2 ;;
         esac
-    done <<< "$archive_entries"
+    done < <(tar tf "$archive_path")
 }
 
 _show_spinner() {
@@ -73,8 +70,7 @@ _show_spinner() {
     local len=${#spinstr}
 
     while kill -0 "$pid" 2>/dev/null; do
-        printf "\r${yellow}[%s] %s [%s]${white}" \
-            "$(date '+%T')" "$msg" "${spinstr:i++%len:1}"
+        printf "\r${yellow}[%s] %s [%s]${white}" "$(date '+%T')" "$msg" "${spinstr:i++%len:1}"
         sleep 0.1
     done
     printf "\r\033[K"
@@ -104,15 +100,42 @@ update_option() {
     printf "\r\033[K"
 
     if (( task_status != 0 )); then
-        printf "${red}[%s] ${tag} --> %s node [失败]，执行过程见 %s${white}\n" \
-            "$(date '+%T')" "$node_name" "$log_file"
+        printf "${red}[%s] ${tag} --> %s node [失败]，执行过程见 %s${white}\n" "$(date '+%T')" "$node_name" "$log_file"
         exit 1
     fi
 
-    printf "${green}[%s] ${tag} --> %s node [完成]${white}\n" \
-        "$(date '+%T')" "$node_name"
+    printf "${green}[%s] ${tag} --> %s node [完成]${white}\n" "$(date '+%T')" "$node_name"
 }
 
+main() {
+    local mode=$1
+    local requested_service=${2:-}
+    local target=${requested_service:-全部适用服务}
+    local start_time
+    local end_time
+
+    _info_msg "检测到 ${mode} 更新，目标: ${target}，按 Enter 继续..."
+    read -r || err_exit "未收到确认，已取消更新" 2
+
+    mkdir -p "$runlog_dir" || err_exit "日志目录 $runlog_dir 创建失败" 1
+
+    start_time=$(date +%s)
+    printf "开始时间: %s\n\n" "$(date '+%F %T')"
+
+    if [[ -n "$requested_service" ]]; then
+        update_option "$requested_service" "$mode"
+    else
+        for service in ${mode_services[$mode]}; do
+            update_option "$service" "$mode"
+        done
+    fi
+
+    end_time=$(date +%s)
+    printf "\n结束时间: %s\n" "$(date '+%F %T')"
+    printf "总耗时: %d 秒\n" "$((end_time - start_time))"
+}
+
+# --- 参数校验 ---
 command -v ansible-playbook &>/dev/null || err_exit "ansible-playbook 未安装" 1
 [[ $# -le 1 ]] || err_exit "参数数量错误，用法: bash start.sh [服务类型]" 2
 
@@ -129,6 +152,7 @@ fi
 [[ -f "$playbook_file" ]] || err_exit "playbook 文件 $playbook_file 不存在" 1
 [[ -d "$file_dir" ]] || err_exit "目录 $file_dir 不存在" 1
 
+# --- 检测更新模式 ---
 update_file_count=0
 [[ -f "$file_dir/groups.lua" ]] && ((update_file_count += 1))
 [[ -f "$file_dir/increment.tar.gz" ]] && ((update_file_count += 1))
@@ -152,24 +176,4 @@ if [[ -n "$requested_service" ]]; then
     esac
 fi
 
-target=${requested_service:-全部适用服务}
-_info_msg "检测到 ${mode} 更新，目标: ${target}，按 Enter 继续..."
-read -r || err_exit "未收到确认，已取消更新" 2
-
-mkdir -p "$runlog_dir" || err_exit "日志目录 $runlog_dir 创建失败" 1
-
-start_time=$(date +%s)
-printf "开始时间: %s\n\n" "$(date '+%F %T')"
-
-if [[ -n "$requested_service" ]]; then
-    update_option "$requested_service" "$mode"
-else
-    for service in ${mode_services[$mode]}; do
-        update_option "$service" "$mode"
-    done
-fi
-
-end_time=$(date +%s)
-
-printf "\n结束时间: %s\n" "$(date '+%F %T')"
-printf "总耗时: %d 秒\n" "$((end_time - start_time))"
+main "$mode" "$requested_service"

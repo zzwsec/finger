@@ -1,3 +1,3 @@
-file/groups.lua
-file/increment.tar.gz
-file/alldo.tar.gz
+/runlog/
+/file/*
+!/file/.gitkeep
