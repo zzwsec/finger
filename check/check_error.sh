@@ -21,7 +21,18 @@ else
     log_pattern="*.log"
 fi
 
-ansible servers \
-    -i "${inventory}" \
-    -m shell \
-    -a "find /data -type f -name '${log_pattern}' -exec grep -Hn 'ERROR' {} + || true"
+cmd=$(cat <<EOF
+find /data -type f -name '${log_pattern}' -exec grep -Hn 'ERROR' {} + 2>/dev/null |
+awk '{
+    key=\$0
+    sub(/^.*\[ERROR\]/, "", key)
+    last[key]=\$0
+}
+END {
+    for (key in last)
+        print last[key]
+}' || true
+EOF
+)
+
+ansible servers -i "${inventory}" -m shell -a "${cmd}"
